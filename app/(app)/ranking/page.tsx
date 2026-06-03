@@ -1,11 +1,8 @@
 import { Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { Podium, type PodiumEntry } from './_components/Podium'
-import { RankList, type RankEntry } from './_components/RankList'
+import { RankingClient, type RankingEntry } from './_components/RankingClient'
 
-type RankingRow = PodiumEntry & RankEntry & { id: string }
-
-async function getData(): Promise<{ entries: RankingRow[]; currentUserId: string | null }> {
+async function getData(): Promise<{ entries: RankingEntry[]; currentUserId: string | null }> {
   const supabase = await createClient()
 
   const [
@@ -27,7 +24,7 @@ async function getData(): Promise<{ entries: RankingRow[]; currentUserId: string
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
 
-  const entries: RankingRow[] = (rankings ?? []).map((r, idx) => {
+  const entries: RankingEntry[] = (rankings ?? []).map((r, idx) => {
     const profile = profileMap.get(r.user_id)
     return {
       ...r,
@@ -41,14 +38,14 @@ async function getData(): Promise<{ entries: RankingRow[]; currentUserId: string
 }
 
 export default async function RankingPage() {
-  let entries: RankingRow[]
+  let entries: RankingEntry[]
   let currentUserId: string | null
 
   try {
     ;({ entries, currentUserId } = await getData())
   } catch {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
+      <div className="flex min-h-[55vh] flex-col items-center justify-center gap-4 text-center px-6">
         <Trophy size={36} className="text-ink-faint/50" strokeWidth={1.5} />
         <div>
           <p className="font-semibold text-ink">Não foi possível carregar</p>
@@ -58,38 +55,5 @@ export default async function RankingPage() {
     )
   }
 
-  if (entries.length === 0) {
-    return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
-        <Trophy size={36} className="text-ink-faint/50" strokeWidth={1.5} />
-        <div>
-          <p className="font-semibold text-ink">O bolão ainda não começou</p>
-          <p className="text-sm text-ink-soft mt-1">O ranking aparece após o primeiro resultado.</p>
-        </div>
-      </div>
-    )
-  }
-
-  const top3 = entries.slice(0, 3)
-  const rest = entries.slice(3)
-
-  return (
-    <div>
-      {/* Page header */}
-      <div className="mb-2">
-        <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-tight">
-          Ranking
-        </h1>
-        <p className="text-ink-soft text-sm mt-1">Copa do Mundo 2026</p>
-      </div>
-
-      {/* Podium */}
-      <Podium entries={top3} />
-
-      {/* List */}
-      {rest.length > 0 && (
-        <RankList entries={rest} currentUserId={currentUserId} startPosition={4} />
-      )}
-    </div>
-  )
+  return <RankingClient initialEntries={entries} currentUserId={currentUserId} />
 }

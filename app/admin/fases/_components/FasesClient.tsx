@@ -421,7 +421,7 @@ export function FasesClient({
                             !isEditable && 'opacity-50 cursor-not-allowed',
                           ].join(' ')}
                         />
-                        <span className="text-xs text-ink-faint">min antes do 1º jogo</span>
+                        <span className="text-xs text-ink-faint whitespace-nowrap">min antes do 1º jogo</span>
                         {lockDirty && (
                           <button
                             onClick={() => handleSaveLock(p.id, lockInput)}

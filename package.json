@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "framer-motion": "^12.40.0",
@@ -27,6 +30,7 @@
     "eslint-config-next": "16.2.6",
     "supabase": "^2.103.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

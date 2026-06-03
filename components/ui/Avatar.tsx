@@ -2,22 +2,35 @@ import type { CSSProperties } from 'react'
 
 type AvatarProps = {
   name: string
+  imageUrl?: string | null
   size?: number
   className?: string
   style?: CSSProperties
 }
 
-export function Avatar({ name, size = 40, className = '', style }: AvatarProps) {
+export function Avatar({ name, imageUrl, size = 40, className = '', style }: AvatarProps) {
+  // Deterministic warm hue from name — stays in analogous range
+  const base = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const hue = (base % 80) + 10 // 10–90° range: warm oranges/yellows/greens
+
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageUrl}
+        alt={name}
+        className={`rounded-full object-cover flex-shrink-0 ${className}`}
+        style={{ width: size, height: size, ...style }}
+      />
+    )
+  }
+
   const initials = name
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
     .map((n) => n[0].toUpperCase())
     .join('')
-
-  // Deterministic warm hue from name — stays in analogous range
-  const base = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  const hue = (base % 80) + 10 // 10–90° range: warm oranges/yellows/greens
 
   return (
     <div

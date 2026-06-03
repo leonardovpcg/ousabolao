@@ -95,7 +95,13 @@ body {
   border-radius: 4px;
 }
 
-/* Scrollbar sutil */
+/* Scrollbar sutil — vertical global */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #E4E2DA; border-radius: 2px; }
+
+/* Hide scrollbar (e.g. horizontal date nav strip) */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}

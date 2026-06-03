@@ -12,19 +12,31 @@ export type TiebreakerQuestion = {
 export default async function AdminDesempatePage() {
   const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('tiebreaker_questions')
-    .select('id, display_order, question, official_answer, is_active')
-    .order('display_order')
+  const [questionsResult, phaseResult] = await Promise.all([
+    supabase
+      .from('tiebreaker_questions')
+      .select('id, display_order, question, official_answer, is_active')
+      .order('display_order'),
+    supabase
+      .from('tournament_phases')
+      .select('betting_locks_at')
+      .eq('phase', 'group_stage')
+      .maybeSingle(),
+  ])
 
-  if (error) {
+  if (questionsResult.error) {
     return (
       <div className="rounded-card border border-hairline bg-card card-shadow-sm p-6">
         <p className="text-ink font-semibold">Erro ao carregar perguntas</p>
-        <p className="text-ink-soft text-sm mt-1">{error.message}</p>
+        <p className="text-ink-soft text-sm mt-1">{questionsResult.error.message}</p>
       </div>
     )
   }
 
-  return <DesempateClient questions={(data ?? []) as TiebreakerQuestion[]} />
+  return (
+    <DesempateClient
+      questions={(questionsResult.data ?? []) as TiebreakerQuestion[]}
+      deadline={phaseResult.data?.betting_locks_at ?? null}
+    />
+  )
 }

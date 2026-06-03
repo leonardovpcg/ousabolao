@@ -1,0 +1,2 @@
+// 11/06/2026 14:45 Campo Grande (UTC-4) = 18:45 UTC
+export const DEADLINE_UTC_ISO = '2026-06-11T18:45:00.000Z'

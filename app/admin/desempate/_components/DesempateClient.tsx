@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Pencil, Trash2, ChevronUp, ChevronDown,
   Loader2, CheckCircle2, AlertCircle, HelpCircle,
+  Download, FileText, Clock,
 } from 'lucide-react'
 import {
   createQuestion,
@@ -14,8 +15,10 @@ import {
   toggleActive,
   deleteQuestion,
   moveQuestion,
+  getDesempateExportData,
 } from '../actions'
 import { Modal } from '@/components/ui/Modal'
+import { formatDateTime } from '@/lib/utils/datetime'
 import type { TiebreakerQuestion } from '../page'
 
 // ── Styles ────────────────────────────────────────────────────
@@ -128,12 +131,32 @@ function AddForm() {
   )
 }
 
+// ── CSV helper ────────────────────────────────────────────────
+
+function triggerDownload(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ── Main component ────────────────────────────────────────────
 
-type Props = { questions: TiebreakerQuestion[] }
+type Props = {
+  questions: TiebreakerQuestion[]
+  deadline: string | null
+}
 
-export function DesempateClient({ questions }: Props) {
+export function DesempateClient({ questions, deadline }: Props) {
   const router = useRouter()
+
+  // ── Deadline status ─────────────────────────────────────────
+  const deadlineDate = deadline ? new Date(deadline) : null
+  const isOpen = deadlineDate ? Date.now() < deadlineDate.getTime() : false
+  const deadlineFormatted = deadline ? formatDateTime(deadline) : null
 
   // ── Edit modal ──────────────────────────────────────────────
   const [editingQ, setEditingQ] = useState<TiebreakerQuestion | null>(null)
@@ -146,8 +169,6 @@ export function DesempateClient({ questions }: Props) {
   const [pendingSet, setPendingSet] = useState(new Set<string>())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-
-  // Official-answer inputs (overrides question's saved value until saved)
   const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({})
 
   const addPending = (key: string) =>
@@ -161,13 +182,55 @@ export function DesempateClient({ questions }: Props) {
 
   const getAnswerInput = (q: TiebreakerQuestion) =>
     answerInputs[q.id] ?? (q.official_answer ?? '')
-
   const isAnswerDirty = (q: TiebreakerQuestion) => {
     if (answerInputs[q.id] === undefined) return false
     return answerInputs[q.id] !== (q.official_answer ?? '')
   }
 
-  // ── Handlers ────────────────────────────────────────────────
+  // ── Export ──────────────────────────────────────────────────
+  const [csvLoading, setCsvLoading] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const handleExportCsv = useCallback(async () => {
+    setCsvLoading(true)
+    setExportError(null)
+    const result = await getDesempateExportData()
+    setCsvLoading(false)
+
+    if ('error' in result) { setExportError(result.error); return }
+
+    const { questions: qs, rows } = result.data
+    const header = ['Jogador', ...qs.map(q => `"${q.replace(/"/g, '""')}"`)]
+    const lines = rows.map(r => [
+      `"${r.player_name.replace(/"/g, '""')}"`,
+      ...r.answers.map(a => a ? `"${a.replace(/"/g, '""')}"` : ''),
+    ])
+    const csv = '﻿' + [header, ...lines].map(row => row.join(',')).join('\n')
+    triggerDownload(csv, 'desempate-ousabolao.csv', 'text/csv;charset=utf-8')
+  }, [])
+
+  const handleExportPdf = useCallback(async () => {
+    setPdfLoading(true)
+    setExportError(null)
+    try {
+      const res = await fetch('/api/admin/desempate/pdf')
+      if (!res.ok) { setExportError('Erro ao gerar PDF.'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'desempate-ousabolao.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setExportError('Erro ao gerar PDF.')
+    } finally {
+      setPdfLoading(false)
+    }
+  }, [])
+
+  // ── Question handlers ───────────────────────────────────────
 
   const handleSaveAnswer = useCallback(async (q: TiebreakerQuestion) => {
     const key: string = `${q.id}_answer`
@@ -219,7 +282,7 @@ export function DesempateClient({ questions }: Props) {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-tight">
           Desempate
         </h1>
@@ -228,15 +291,86 @@ export function DesempateClient({ questions }: Props) {
         </p>
       </div>
 
-      {/* Info banner */}
+      {/* ── Deadline status ──────────────────────────────────── */}
+      <div
+        className={[
+          'rounded-card border px-4 py-3 mb-4 flex items-center justify-between gap-3',
+          deadlineDate
+            ? isOpen
+              ? 'border-win/30 bg-win/6'
+              : 'border-hairline bg-card-sunken'
+            : 'border-hairline bg-card-sunken',
+        ].join(' ')}
+      >
+        <div className="flex items-center gap-2">
+          <Clock size={14} strokeWidth={1.5} className={deadlineDate && isOpen ? 'text-win' : 'text-ink-faint'} />
+          <span className={`text-sm font-semibold ${deadlineDate && isOpen ? 'text-win' : 'text-ink-soft'}`}>
+            {deadlineDate
+              ? isOpen
+                ? 'Aberto para respostas'
+                : 'Encerrado'
+              : 'Prazo não configurado'}
+          </span>
+        </div>
+        {deadlineFormatted ? (
+          <span className="text-xs text-ink-faint">
+            Prazo: {deadlineFormatted} (Campo Grande)
+          </span>
+        ) : (
+          <span className="text-xs text-ink-faint">
+            Configure em Fases → Fase de Grupos
+          </span>
+        )}
+      </div>
+
+      {/* ── Export buttons ────────────────────────────────────── */}
+      <div className="flex items-center gap-2 mb-5">
+        <button
+          onClick={handleExportCsv}
+          disabled={csvLoading}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-btn border border-hairline bg-card text-ink text-xs font-semibold hover:bg-hairline active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          {csvLoading
+            ? <Loader2 size={13} className="animate-spin" />
+            : <Download size={13} strokeWidth={2} />
+          }
+          Exportar CSV
+        </button>
+        <button
+          onClick={handleExportPdf}
+          disabled={pdfLoading}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-btn border border-hairline bg-card text-ink text-xs font-semibold hover:bg-hairline active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          {pdfLoading
+            ? <Loader2 size={13} className="animate-spin" />
+            : <FileText size={13} strokeWidth={2} />
+          }
+          Exportar PDF
+        </button>
+        <AnimatePresence>
+          {exportError && (
+            <motion.span
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-xs text-loss flex items-center gap-1"
+            >
+              <AlertCircle size={11} strokeWidth={2} />
+              {exportError}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Info banner ──────────────────────────────────────── */}
       <div className="rounded-card border border-hairline bg-card-sunken px-4 py-3 mb-6 flex items-start gap-3">
         <HelpCircle size={15} strokeWidth={1.5} className="text-ink-faint flex-shrink-0 mt-0.5" />
         <p className="text-xs text-ink-soft leading-relaxed">
-          Os jogadores respondem às perguntas antes da Copa. As <strong>respostas oficiais</strong> são preenchidas aqui quando a Copa definir o resultado — use o campo de cada pergunta abaixo. Critério de desempate avalia as perguntas na ordem 1 → 5 até encontrar diferença.
+          Os jogadores respondem às perguntas antes da Copa. As <strong>respostas oficiais</strong> são preenchidas aqui quando a Copa definir o resultado. Critério de desempate avalia as perguntas na ordem 1 → 5.
         </p>
       </div>
 
-      {/* Question list */}
+      {/* ── Question list ─────────────────────────────────────── */}
       {questions.length === 0 ? (
         <div className="rounded-card border border-hairline bg-card card-shadow-sm px-5 py-12 text-center mb-4">
           <HelpCircle size={28} strokeWidth={1.5} className="text-ink-faint/50 mx-auto mb-3" />
@@ -403,7 +537,6 @@ export function DesempateClient({ questions }: Props) {
                     </div>
                   </div>
 
-                  {/* Error or saved status */}
                   {error && (
                     <p className="flex items-center gap-1.5 mt-1.5 text-[11px] text-loss">
                       <AlertCircle size={10} strokeWidth={2} />

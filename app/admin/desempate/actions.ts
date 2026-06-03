@@ -139,6 +139,69 @@ export async function deleteQuestion(id: string): Promise<ActionState> {
   return { ok: true }
 }
 
+// ── Export data ───────────────────────────────────────────────
+
+export type ExportRow = {
+  player_name: string
+  answers: (string | null)[] // indexed by question display_order
+}
+
+export type ExportData = {
+  questions: string[] // ordered question texts
+  rows: ExportRow[]   // one per player, sorted by name
+  generated_at: string
+}
+
+export async function getDesempateExportData(): Promise<
+  { data: ExportData } | { error: string }
+> {
+  const supabase = await requireAdmin().catch(() => null)
+  if (!supabase) return { error: 'Acesso negado.' }
+
+  const [qResult, rResult, pResult] = await Promise.all([
+    supabase
+      .from('tiebreaker_questions')
+      .select('id, display_order, question')
+      .order('display_order'),
+    supabase
+      .from('tiebreaker_responses')
+      .select('user_id, question_id, answer'),
+    supabase
+      .from('profiles')
+      .select('id, name'),
+  ])
+
+  if (qResult.error) return { error: `Erro ao buscar perguntas: ${qResult.error.message}` }
+  if (rResult.error) return { error: `Erro ao buscar respostas: ${rResult.error.message}` }
+  if (pResult.error) return { error: `Erro ao buscar jogadores: ${pResult.error.message}` }
+
+  const questions = qResult.data ?? []
+  const responses = rResult.data ?? []
+  const players = pResult.data ?? []
+
+  // Map userId → questionId → answer
+  const responseMap = new Map<string, Map<string, string>>()
+  for (const r of responses) {
+    if (!responseMap.has(r.user_id)) responseMap.set(r.user_id, new Map())
+    responseMap.get(r.user_id)!.set(r.question_id, r.answer)
+  }
+
+  const rows: ExportRow[] = players
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR'))
+    .map(player => ({
+      player_name: player.name ?? 'Sem nome',
+      answers: questions.map(q => responseMap.get(player.id)?.get(q.id) ?? null),
+    }))
+
+  return {
+    data: {
+      questions: questions.map(q => q.question),
+      rows,
+      generated_at: new Date().toISOString(),
+    },
+  }
+}
+
 // ── Reorder (swap with neighbor) ──────────────────────────────
 
 export async function moveQuestion(

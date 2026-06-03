@@ -140,6 +140,13 @@ O erro a evitar: uma coluna de 390px perdida no meio de uma tela branca gigante.
 - Breakpoints: `< 768` mobile (bottom nav) · `768–1023` tablet (coluna central mais larga, bottom nav ou sidebar compacta) · `≥ 1024` desktop (sidebar + coluna + rail opcional).
 - Implementar com um `AppShell` responsivo: o mesmo conteúdo, navegação e densidade adaptadas por breakpoint.
 
+### Shell do ADMIN — responsivo (regra própria)
+O admin tem navegação própria (8 seções) e **não** pode reaproveitar uma fila horizontal de abas no mobile (vaza da tela). Tratar por breakpoint:
+- **Desktop (≥1024px):** sidebar lateral do admin (lista vertical das seções) + conteúdo numa coluna confortável (não estreita). Pode ter rail/topo de visão geral.
+- **Mobile (<1024px):** **header fixo** com título da seção atual + **menu hambúrguer** que abre um drawer/sheet lateral com as 8 seções (Jogos, Resultados, Fases, Participantes, Desempate, Pagamento, Palpites Gerais, Regras). Selecionou → fecha o drawer e navega. **Nunca** uma régua horizontal de abas com scroll.
+- **Conteúdo das seções:** cards e formulários **fluidos** (largura total no mobile, grid no desktop). Texto nunca pode quebrar palavra-a-palavra numa coluna estreita (bug atual) — o conteúdo ocupa a largura disponível. Tabelas largas (palpites, participantes) usam scroll horizontal com 1ª coluna fixa.
+- O drawer e o header seguem o design "Almanaque" (papel, tinta, hairlines), não componentes default.
+
 ### ❌ Anti-padrões (o "cheiro de IA barata") — PROIBIDO
 - Verde/roxo/azul neon saturado como cor dominante; cor enchendo botões e fundos.
 - Fundo branco puro chapado; cards sem elevação real (cinza-sobre-cinza).
@@ -280,7 +287,12 @@ A pontuação considera **apenas os 90 minutos regulamentares**. Prorrogação e
 2. **Mais placares exatos** (`ranking.exact_scores`).
 3. **Mais resultados corretos** (`ranking.correct_results`).
 
-As 5 perguntas são respondidas **antes do início da Copa** (mesmo prazo da Fase de Grupos), ficam em `tiebreaker_answers` e aparecem na seção Desempate. A seção deve deixar **transparente** qual critério decidiu cada empate.
+As 5 perguntas são respondidas **antes do início da Copa** e travam em **11/06/2026 14:45 (America/Campo_Grande)** — prazo fixo, garantido no banco pelo trigger `enforce_tiebreaker_deadline` (migration 11; admin isento). Ficam em `tiebreaker_questions`/`tiebreaker_responses` e aparecem na seção Desempate. A seção deve deixar **transparente** qual critério decidiu cada empate. O admin pode exportar as respostas (CSV e PDF).
+
+**Tela Desempate (jogador) — dois estados:**
+- *Antes do prazo (11/06 14:45):* jogador responde/edita as **próprias** respostas; vê só as dele; timer regressivo até o prazo (fuso Campo Grande).
+- *Depois do prazo:* respostas travadas (banco, migration 11); a tela vira modo **transparência** e exibe as respostas de **todos os participantes** por pergunta; timer some / "Respostas encerradas".
+- Esconder respostas alheias antes do prazo é regra **de tela** (a RLS deixa ler; suficiente entre amigos) — não depender disso para segurança forte.
 
 **Perguntas (dinâmicas, texto livre — tabelas `tiebreaker_questions` / `tiebreaker_responses`):**
 O admin faz CRUD das perguntas em `/admin/desempate` e cadastra a `official_answer` de cada uma no fim. O jogador responde em texto livre (uma resposta por pergunta). O critério 1 do desempate compara, na ordem de `display_order`, quem acertou cada pergunta (`is_correct`), sequencialmente.
@@ -298,11 +310,13 @@ Ciclo de vida de cada fase via `tournament_phases.status`:
 
 **Modo de palpite (configurável por fase):**
 - **Fase de grupos:** o admin escolhe entre dois modos:
-  - *Fase inteira:* um único prazo = X min antes do 1º jogo de toda a fase de grupos.
-  - *Por rodada:* cada rodada (1ª/2ª/3ª) tem prazo próprio = X min antes do 1º jogo daquela rodada. A trava e o timer passam a ser por rodada.
+  - *Fase inteira (`whole_phase`):* trava única = X min antes do 1º jogo de toda a fase de grupos (as 3 rodadas travam juntas nesse instante).
+  - *Por rodada (`per_round`):* ao abrir a fase, **as 3 rodadas já ficam preenchíveis de uma vez**. Cada rodada **trava sozinha por horário** = X min antes do 1º jogo daquela rodada (rodadas ainda não vencidas seguem editáveis). **Não há abertura manual de rodada** — abrir é por fase; a trava é automática por rodada.
 - **Mata-mata (16-avos → final):** sempre **fase inteira** (um prazo por fase).
 
-**Implicação de dados:** o modo "por rodada" usa o campo `matches.round`. O cálculo do prazo agrupa as partidas por fase (ou fase+rodada) e pega o menor `match_date`. A trava do banco (`enforce_bet_deadline`) deve considerar o modo: por fase usa o 1º jogo da fase; por rodada usa o 1º jogo da rodada do jogo sendo palpitado. O `tournament_phases.betting_locks_at` deixa de ser preenchido à mão e passa a ser derivado (calculado na escrita do resultado/cadastro, ou em tempo de checagem). Onde guardar o modo e o X: adicionar a `tournament_phases` os campos `bet_mode` (`whole_phase`|`per_round`) e `lock_minutes_before` (int) — **migration nova a fazer**.
+**Ciclo (status em `tournament_phases`):** o admin abre a **fase** uma vez (`upcoming → open`); a partir daí toda trava é automática por tempo (trigger `enforce_bet_deadline`, versão final na migration 12). `phase_rounds` **não controla abertura** de palpite (o trigger não depende dela).
+
+**Implicação de dados:** o modo "por rodada" usa `matches.round`. O cálculo do prazo pega o menor `match_date` da janela (fase no `whole_phase`; rodada do jogo no `per_round`). Campos em `tournament_phases`: `bet_mode` (`whole_phase`|`per_round`) e `lock_minutes_before` (int).
 
 Fluxo real (grupos, modo "fase inteira"): 1º jogo 11/06 15:00, X=15 → trava 14:45 automático. Admin lança resultados, marca `concluded`, pontuação aparece, abre a próxima fase.
 
@@ -327,9 +341,9 @@ Fluxo do lançamento de resultado pelo admin (server action): (1) grava `home_sc
 
 | Seção | Rota | O que faz |
 |---|---|---|
-| **Início** | `/inicio` | Resumo do jogador: posição no ranking, próximos jogos a palpitar, palpites pendentes, destaques. Dashboard pessoal. |
-| **Palpite** | `/palpite` | Lista de partidas. Abertas = editável; encerradas = palpite + resultado + pontos ganhos. Foco no fluxo rápido de palpitar. |
-| **Ranking** | `/ranking` | Classificação geral. Pódio destacado (gold), linha do usuário fixada/realçada. Animar mudança de posição. |
+| **Início** | `/inicio` | Dashboard do jogador. **Timer de destaque** (bonito, moderno): countdown em dias/horas/min/seg até **travar a próxima janela de palpite** (janela aberta com o prazo futuro mais próximo = 1º jogo da janela − X; fuso Campo Grande). **Premiação acumulada** = `quota_value` × participantes pagos (cresce com pagamentos). Métricas do jogador: **total de pontos** (`ranking.total_points`), **palpites feitos** (count em `bets`), **placares exatos** (`ranking.exact_scores`), **posição atual** (`ranking.position`/ordem por pontos). |
+| **Palpite** | `/palpite` | **Navegação por data** (passa de dia em dia vendo os jogos daquele dia). Cada jogo: bandeiras + sigla das seleções e **stepper de placar** (setinhas ↑/↓ em cada gol, estilo da referência — mas no visual "Almanaque", não copiar o azul). Salva o palpite do jogador (upsert em `bets`). **Trava por tempo** (15 min antes do 1º jogo da janela — rodada no `per_round`, fase no `whole_phase`): timer regressivo; ao zerar, campos viram read-only sem reload (banco também recusa — dupla proteção). **Transparência:** após o prazo da rodada fechar, exibir os palpites dos **outros** participantes naqueles jogos (regra de tela; RLS já permite ler). **Pontos:** quando a partida for marcada encerrada com resultado, exibir os pontos que cada um fez naquele jogo. |
+| **Ranking** | `/ranking` | Pódio (1º/2º/3º com fotos, gold/silver/bronze), lista do 4º pra baixo com fotos, linha do usuário realçada. **Tempo real (Supabase Realtime na tabela `ranking`)**: atualiza sozinho quando o admin lança resultado. **"Zona da picanha"**: os 2 últimos colocados destacados (zoeira — Art. 11 Ousa Churras), exibida durante toda a Copa. Ordenação por `total_points` (desempate fino do Art. 9º fica para depois). Animar mudança de posição. |
 | **Desempate** | `/desempate` | Explica os critérios de desempate e mostra os números que definem empates. Transparência. |
 | **Meu Perfil** | `/perfil` | Dados do jogador, avatar, `payment_status`, histórico de palpites, estatísticas (% de acerto, placares exatos), logout. |
 | **Pagamento** | `/pagamento` | **Read-only p/ jogador.** Mostra a quota (`pool_settings.quota_value` = R$ 100), a chave PIX e instruções (`pool_settings.payment_instructions`, editadas pelo admin), e o status da própria inscrição. |
@@ -351,7 +365,7 @@ Lista de partidas com foco em lançar placar (`home_score`/`away_score` + `statu
 
 **c) Fases** (`tournament_phases`, `phase_rounds`) — configurar + ABRIR (encerrar é em Resultados):
 Define a **fase atual** do torneio (reflete na Home e no Palpite). Lista das fases com status (`upcoming`/`open`/`locked`/`concluded`). Por fase: **modo de palpite** (fase de grupos: toggle *fase inteira* / *por rodada*; mata-mata sempre fase inteira) e **X min** de antecedência (`lock_minutes_before`). Exibe o **prazo calculado** (somente leitura) derivado do 1º jogo da janela (ver §6) — se não houver jogos cadastrados, mostrar "aguardando cadastro de jogos".
-- **Abrir** uma janela para palpite: `upcoming → open`. No modo *fase inteira*, abre a fase (`tournament_phases`). No modo *por rodada* (só grupos, 3 rodadas fixas), abre cada **rodada** separadamente (`phase_rounds`).
+- **Abrir** a janela para palpite: `upcoming → open` na **fase** (`tournament_phases`). Vale para os dois modos — no `per_round`, abrir a fase já libera as 3 rodadas (cada uma trava sozinha no horário). **Não** há botão de abrir rodada individual.
 - **Não** encerra aqui — encerrar (`concluded`) é ação da seção Resultados.
 
 **Divisão Fases × Resultados:** Fases = configurar e **abrir**; Resultados = lançar placar e **encerrar** (rodada/fase). Fluxo: abre rodada/fase em Fases → jogadores palpitam até o prazo → em Resultados lança placares e encerra → pontuação/ranking aparecem → volta em Fases e abre a próxima.
@@ -359,13 +373,16 @@ Define a **fase atual** do torneio (reflete na Home e no Palpite). Lista das fas
 **d) Participantes** (`profiles`, `bets_with_profiles`):
 Listar jogadores, marcar `payment_status` **pago/pendente**. **Ver todos os palpites** (via view `bets_with_profiles`), filtrável por fase/rodada/jogo. **Exportar PDF** dos palpites para o grupo (ver §7.2).
 
-**e) Desempate** (`tiebreaker_questions`):
-CRUD das perguntas (texto livre) e cadastro das **respostas oficiais** (`official_answer`) para o critério 1 do desempate.
+**e) Desempate** (`tiebreaker_questions`, `tiebreaker_responses`):
+CRUD das perguntas (texto livre): adicionar, editar, reordenar, ativar/desativar, remover. Cadastro da **resposta oficial** (`official_answer`) de cada pergunta — preenchida depois (pode ficar vazia). **Exportar as respostas dos jogadores em CSV e PDF.** As respostas dos jogadores travam em 11/06/2026 14:45 (trigger, migration 11); a tela pode exibir esse prazo e o status (aberto/encerrado).
 
 **f) Pagamento** (`pool_settings`):
 Editar `quota_value` (R$100) e `payment_instructions` (a **chave PIX** exibida em `/pagamento`).
 
-**g) Regras** (`rules`):
+**g) Palpites Gerais** (`bets_with_profiles`, `matches`, `national_teams`) — fica **acima de Regras** no menu:
+Visão central de **todos os palpites** de todos os participantes. Filtrar por **fase** e por **rodada** (e idealmente por jogo/participante). Ler da view `bets_with_profiles` (já traz nome, email, status de pagamento) cruzando com `matches` (jogos da fase/rodada) e `national_teams` (escudos). Apresentar como matriz/tabela jogador × jogos. **Exportar em CSV e PDF** (mesmo motor de PDF reutilizável do Desempate) para mandar no grupo. Respeitar transparência (Art. 7º): aqui o admin vê tudo; a regra de esconder palpite alheio antes do jogo é só do lado do jogador.
+
+**h) Regras** (`rules`):
 Adicionar, editar, remover e reordenar artigos do regulamento exibido em `/regras`.
 
 > Acesso ao admin: §8. Tabelas existentes após migrations; pendente apenas a migration de `bet_mode`/`lock_minutes_before` em `tournament_phases`.

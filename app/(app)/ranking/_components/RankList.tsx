@@ -1,120 +1,176 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Flame } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
-
-export type RankEntry = {
-  user_id: string
-  position: number | null
-  total_points: number
-  exact_scores: number
-  correct_results: number
-  name: string
-  avatar_url: string | null
-}
+import type { RankingEntry } from './RankingClient'
 
 type Props = {
-  entries: RankEntry[]
+  entries: RankingEntry[]
   currentUserId: string | null
-  startPosition: number
+  picanhaUserIds: Set<string>
+  showPicanha: boolean
 }
 
-const containerVariants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.05 } },
-}
-
-const rowVariants = {
-  hidden: { opacity: 0, y: 8 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 300,
-      damping: 28,
-    },
-  },
-}
-
-export function RankList({ entries, currentUserId, startPosition }: Props) {
+function RankRow({
+  entry,
+  isMe,
+  isPicanha,
+}: {
+  entry: RankingEntry
+  isMe: boolean
+  isPicanha: boolean
+}) {
   return (
-    <motion.ul
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="flex flex-col gap-2 mt-4"
-      aria-label="Classificação"
+    <motion.li
+      layout
+      layoutId={`rank-${entry.user_id}`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
-      {entries.map((entry, idx) => {
-        const isMe = entry.user_id === currentUserId
-        const pos = entry.position ?? startPosition + idx
+      <div
+        className={[
+          'relative flex items-center gap-3 rounded-card bg-card border px-4 py-3.5',
+          'transition-colors duration-200',
+          isMe
+            ? 'border-brand/40 card-shadow-sm'
+            : isPicanha
+            ? 'border-bronze/25 card-shadow-sm'
+            : 'border-hairline card-shadow-sm',
+        ].join(' ')}
+      >
+        {/* Left accent */}
+        {isMe && (
+          <span className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-brand" />
+        )}
+        {isPicanha && !isMe && (
+          <span className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-bronze/50" />
+        )}
 
-        return (
-          <motion.li key={entry.user_id} variants={rowVariants}>
-            <div
+        {/* Position */}
+        <span
+          className={[
+            'font-display w-7 flex-shrink-0 text-center leading-none nums',
+            isMe
+              ? 'text-brand font-bold text-base'
+              : isPicanha
+              ? 'text-bronze font-semibold text-sm'
+              : 'text-ink-faint font-medium text-sm',
+          ].join(' ')}
+        >
+          {entry.position}
+        </span>
+
+        {/* Avatar */}
+        <Avatar name={entry.name} imageUrl={entry.avatar_url} size={36} />
+
+        {/* Name */}
+        <div className="flex-1 min-w-0">
+          <p
+            className={[
+              'truncate text-sm leading-tight',
+              isMe || isPicanha ? 'font-semibold text-ink' : 'font-medium text-ink',
+            ].join(' ')}
+          >
+            {entry.name}
+          </p>
+          {isMe && (
+            <p className="text-[11px] text-brand font-medium mt-0.5">você</p>
+          )}
+        </div>
+
+        {/* Points */}
+        <div className="flex-shrink-0 text-right">
+          <p className="leading-none">
+            <span
               className={[
-                'relative flex items-center gap-3 rounded-card px-4 py-3.5 bg-card border',
-                'transition-all duration-150',
-                isMe
-                  ? 'border-brand/40 card-shadow-sm'
-                  : 'border-hairline card-shadow-sm hover:border-hairline/80',
+                'font-display font-bold nums text-base',
+                isMe ? 'text-brand' : 'text-ink',
               ].join(' ')}
             >
-              {/* Brand left accent for current user */}
-              {isMe && (
-                <span className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-brand" />
-              )}
+              {entry.total_points}
+            </span>
+            <span className="text-ink-faint text-xs ml-0.5">pts</span>
+          </p>
+          <p className="text-[11px] text-ink-faint mt-0.5">
+            {entry.exact_scores} exatos
+          </p>
+        </div>
+      </div>
+    </motion.li>
+  )
+}
 
-              {/* Position — Fraunces editorial number */}
-              <span
-                className={[
-                  'font-display w-7 flex-shrink-0 text-center leading-none',
-                  isMe ? 'text-brand font-bold text-base' : 'text-ink-faint font-medium text-sm',
-                ].join(' ')}
+export function RankList({ entries, currentUserId, picanhaUserIds, showPicanha }: Props) {
+  const regularEntries = entries.filter((e) => !picanhaUserIds.has(e.user_id))
+  const picanhaEntries = entries.filter((e) => picanhaUserIds.has(e.user_id))
+
+  return (
+    <div className="mt-4">
+      <AnimatePresence mode="popLayout">
+        {regularEntries.length > 0 && (
+          <motion.ul
+            key="regular-list"
+            layout
+            className="flex flex-col gap-2"
+            aria-label="Classificação"
+          >
+            {regularEntries.map((entry) => (
+              <RankRow
+                key={entry.user_id}
+                entry={entry}
+                isMe={entry.user_id === currentUserId}
+                isPicanha={false}
+              />
+            ))}
+          </motion.ul>
+        )}
+
+        {showPicanha && picanhaEntries.length > 0 && (
+          <motion.div
+            key="picanha-zone"
+            layout
+            className="mt-7"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15 }}
+          >
+            {/* Section divider */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-px bg-hairline" />
+              <div
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-pill border"
+                style={{
+                  background: 'rgba(176,122,75,0.06)',
+                  borderColor: 'rgba(176,122,75,0.22)',
+                }}
               >
-                {pos}
-              </span>
-
-              {/* Avatar */}
-              <Avatar name={entry.name} size={36} />
-
-              {/* Name */}
-              <div className="flex-1 min-w-0">
-                <p
-                  className={[
-                    'truncate text-sm leading-tight',
-                    isMe ? 'font-semibold text-ink' : 'font-medium text-ink',
-                  ].join(' ')}
-                >
-                  {entry.name}
-                </p>
-                {isMe && (
-                  <p className="text-xs text-ink-faint mt-0.5">você</p>
-                )}
+                <Flame size={13} className="text-bronze" strokeWidth={1.5} />
+                <span className="text-[11px] font-bold text-bronze tracking-wider uppercase">
+                  Zona da Picanha
+                </span>
               </div>
-
-              {/* Points */}
-              <div className="flex-shrink-0 text-right">
-                <p className="leading-none">
-                  <span
-                    className={[
-                      'font-display font-bold nums text-base',
-                      isMe ? 'text-brand' : 'text-ink',
-                    ].join(' ')}
-                  >
-                    {entry.total_points}
-                  </span>
-                  <span className="text-ink-faint text-xs ml-0.5">pts</span>
-                </p>
-                <p className="text-xs text-ink-faint mt-0.5">
-                  {entry.exact_scores} exatos
-                </p>
-              </div>
+              <div className="flex-1 h-px bg-hairline" />
             </div>
-          </motion.li>
-        )
-      })}
-    </motion.ul>
+            <p className="text-center text-[12px] text-ink-faint mb-3 leading-relaxed">
+              Os 2 últimos pagam o Ousa Churras
+            </p>
+
+            <ul className="flex flex-col gap-2" aria-label="Zona da Picanha">
+              {picanhaEntries.map((entry) => (
+                <RankRow
+                  key={entry.user_id}
+                  entry={entry}
+                  isMe={entry.user_id === currentUserId}
+                  isPicanha={true}
+                />
+              ))}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }

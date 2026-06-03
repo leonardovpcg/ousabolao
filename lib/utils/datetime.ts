@@ -57,6 +57,41 @@ export function formatDate(iso: string): string {
   }).format(new Date(iso))
 }
 
+/** UTC ISO → "YYYY-MM-DD" in Campo Grande — use as a day-grouping key */
+export function cgDateKey(iso: string): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: APP_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso))
+}
+
+/** "YYYY-MM-DD" → "12 JUN" uppercase short label for date navigation */
+export function formatDayLabel(dateKey: string): string {
+  const d = new Date(`${dateKey}T12:00:00-04:00`)
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TZ,
+    day: 'numeric',
+    month: 'short',
+  })
+    .format(d)
+    .toUpperCase()
+    .replace('.', '')
+}
+
+/** "YYYY-MM-DD" → "QUI" short weekday for date navigation */
+export function formatDayOfWeek(dateKey: string): string {
+  const d = new Date(`${dateKey}T12:00:00-04:00`)
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TZ,
+    weekday: 'short',
+  })
+    .format(d)
+    .toUpperCase()
+    .replace('.', '')
+}
+
 /** UTC ISO → "Qui, 11 jun · 15h00" in Campo Grande */
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', {
