@@ -2,23 +2,16 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request })
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return response
+  }
+
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Supabase environment variables are missing')
-
-      return NextResponse.json(
-        { error: 'Supabase environment variables are missing' },
-        { status: 500 }
-      )
-    }
-
-    let response = NextResponse.next({
-      request,
-    })
-
     const supabase = createServerClient(
       supabaseUrl,
       supabaseAnonKey,
@@ -28,17 +21,13 @@ export async function middleware(request: NextRequest) {
             return request.cookies.getAll()
           },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value }) => {
+            cookiesToSet.forEach(({ name, value }) =>
               request.cookies.set(name, value)
-            })
-
-            response = NextResponse.next({
-              request,
-            })
-
-            cookiesToSet.forEach(({ name, value, options }) => {
+            )
+            response = NextResponse.next({ request })
+            cookiesToSet.forEach(({ name, value, options }) =>
               response.cookies.set(name, value, options)
-            })
+            )
           },
         },
       }
@@ -84,13 +73,8 @@ export async function middleware(request: NextRequest) {
     }
 
     return response
-  } catch (error) {
-    console.error('Middleware error:', error)
-
-    return NextResponse.json(
-      { error: 'Middleware failed' },
-      { status: 500 }
-    )
+  } catch {
+    return response
   }
 }
 
