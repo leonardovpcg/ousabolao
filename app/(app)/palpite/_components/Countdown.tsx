@@ -10,12 +10,14 @@ type Props = {
 }
 
 function msToDisplay(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000))
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const d = Math.floor(total / 86400)
+  const h = Math.floor((total % 86400) / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
 
-  if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}m`
+  if (d > 0) return `${d}d ${h}h`
+  if (h > 0) return `${h}h ${m}m`
   if (m > 0) return `${m}m ${s.toString().padStart(2, '0')}s`
   return `${s}s`
 }
@@ -49,23 +51,52 @@ export function Countdown({ deadlineUtc, onExpire, className = '' }: Props) {
 
   if (remaining === 0) {
     return (
-      <span className={`inline-flex items-center gap-1 text-ink-faint text-xs ${className}`}>
-        <Lock size={11} strokeWidth={1.5} />
-        Palpites encerrados
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-card-sunken border border-hairline ${className}`}
+      >
+        <Lock size={10} strokeWidth={2} className="text-ink-faint flex-shrink-0" />
+        <span className="text-[10px] font-bold uppercase tracking-wide text-ink-faint">
+          Encerrado
+        </span>
       </span>
     )
   }
 
-  const isUrgent = remaining < 30 * 60 * 1000 // < 30 min
+  const isUrgent = remaining < 60 * 60 * 1000    // < 1h → amber
+  const isCritical = remaining < 15 * 60 * 1000  // < 15 min → pulse
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs ${
-        isUrgent ? 'text-brand font-semibold' : 'text-ink-faint'
-      } ${className}`}
+      className={[
+        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors duration-700',
+        isUrgent ? 'bg-brand/8 border-brand/25' : 'bg-card-sunken border-hairline',
+        className,
+      ].join(' ')}
     >
-      <Clock size={11} strokeWidth={1.5} className={isUrgent ? 'animate-pulse' : ''} />
-      Expira em {msToDisplay(remaining)}
+      <Clock
+        size={10}
+        strokeWidth={1.75}
+        className={[
+          'flex-shrink-0 transition-colors duration-700',
+          isCritical ? 'text-brand animate-pulse' : isUrgent ? 'text-brand' : 'text-ink-faint',
+        ].join(' ')}
+      />
+      <span
+        className={[
+          'text-[10px] font-semibold uppercase tracking-wide transition-colors duration-700',
+          isUrgent ? 'text-brand/70' : 'text-ink-faint',
+        ].join(' ')}
+      >
+        Fecha em
+      </span>
+      <span
+        className={[
+          'font-display text-[13px] font-bold nums leading-none transition-colors duration-700',
+          isUrgent ? 'text-brand' : 'text-ink-soft',
+        ].join(' ')}
+      >
+        {msToDisplay(remaining)}
+      </span>
     </span>
   )
 }

@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronLeft, ChevronRight, Calendar, Lock } from 'lucide-react'
 import { cgDateKey, formatDayLabel, formatDayOfWeek } from '@/lib/utils/datetime'
 import { MatchCard } from './MatchCard'
 import type { MatchData } from './types'
@@ -147,14 +148,30 @@ export function PalpiteClient({
       {/* Payment wall banner */}
       {!canBet && (
         <div
-          className="flex items-start gap-3 mb-5 p-3.5 rounded-card border"
-          style={{ background: 'rgba(178,58,46,.05)', borderColor: 'rgba(178,58,46,.20)' }}
+          className="mb-5 rounded-card border p-4 flex items-center gap-3.5"
+          style={{ background: 'rgba(200,136,30,.05)', borderColor: 'rgba(200,136,30,.22)' }}
         >
-          <div className="w-1.5 h-1.5 rounded-full bg-loss mt-1.5 flex-shrink-0" />
-          <p className="text-sm text-ink-soft leading-snug">
-            <span className="font-semibold text-ink">Pagamento pendente.</span>{' '}
-            Você pode ver os jogos, mas o envio de palpites fica bloqueado até a confirmação.
-          </p>
+          <div
+            className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center"
+            style={{ background: 'rgba(200,136,30,.14)' }}
+          >
+            <Lock size={16} className="text-brand" strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink leading-none mb-0.5">
+              Palpites bloqueados
+            </p>
+            <p className="text-xs text-ink-soft leading-snug">
+              Aguardando confirmação de pagamento.{' '}
+              <Link
+                href="/pagamento"
+                className="text-brand underline-offset-2 hover:underline"
+              >
+                Ver instruções de pagamento
+              </Link>
+              .
+            </p>
+          </div>
         </div>
       )}
 

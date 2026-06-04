@@ -364,84 +364,88 @@ export function MatchCard({ match, canBet }: Props) {
     <div className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5">
       <CardHeader match={match} />
 
-      {/* Steppers row */}
-      <div className="flex items-center gap-2">
-        {/* Home team */}
-        <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
-          <TeamFlag url={homeTeam?.emblem_url ?? null} name={homeTeam?.name ?? '?'} size={40} />
-          <span className="text-[11px] font-semibold text-ink text-center leading-tight truncate w-full px-1">
-            {homeTeam?.name ?? '–'}
-          </span>
-        </div>
+      {/* Steppers row — dimmed + non-interactive when payment pending */}
+      <div className={!canBet ? 'opacity-50 pointer-events-none select-none' : ''}>
+        <div className="flex items-center gap-2">
+          {/* Home team */}
+          <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+            <TeamFlag url={homeTeam?.emblem_url ?? null} name={homeTeam?.name ?? '?'} size={40} />
+            <span className="text-[11px] font-semibold text-ink text-center leading-tight truncate w-full px-1">
+              {homeTeam?.name ?? '–'}
+            </span>
+          </div>
 
-        {/* Steppers */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <Stepper
-            value={home}
-            onChange={setHome}
-            disabled={isDisabled}
-            label={`Gols ${homeTeam?.name ?? 'Mandante'}`}
-          />
-          <span className="text-ink-faint text-sm font-light px-0.5">×</span>
-          <Stepper
-            value={away}
-            onChange={setAway}
-            disabled={isDisabled}
-            label={`Gols ${awayTeam?.name ?? 'Visitante'}`}
-          />
-        </div>
+          {/* Steppers */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Stepper
+              value={home}
+              onChange={setHome}
+              disabled={isDisabled}
+              label={`Gols ${homeTeam?.name ?? 'Mandante'}`}
+            />
+            <span className="text-ink-faint text-sm font-light px-0.5">×</span>
+            <Stepper
+              value={away}
+              onChange={setAway}
+              disabled={isDisabled}
+              label={`Gols ${awayTeam?.name ?? 'Visitante'}`}
+            />
+          </div>
 
-        {/* Away team */}
-        <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
-          <TeamFlag url={awayTeam?.emblem_url ?? null} name={awayTeam?.name ?? '?'} size={40} />
-          <span className="text-[11px] font-semibold text-ink text-center leading-tight truncate w-full px-1">
-            {awayTeam?.name ?? '–'}
-          </span>
+          {/* Away team */}
+          <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+            <TeamFlag url={awayTeam?.emblem_url ?? null} name={awayTeam?.name ?? '?'} size={40} />
+            <span className="text-[11px] font-semibold text-ink text-center leading-tight truncate w-full px-1">
+              {awayTeam?.name ?? '–'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Payment wall */}
-      {!canBet && (
-        <div className="mt-3 flex items-center gap-2 py-2.5 px-3 rounded-xl bg-card-sunken border border-hairline">
-          <Lock size={13} className="text-ink-faint flex-shrink-0" />
-          <p className="text-xs text-ink-soft">
-            Pagamento pendente — confirme com o admin para palpitar.
-          </p>
-        </div>
-      )}
-
-      {/* Countdown + submit */}
-      {canBet && (
-        <div className="mt-4 flex items-center justify-between gap-3">
+      {/* Footer row: countdown (always) + submit button OR lock badge */}
+      <div className="mt-4 flex items-center justify-between gap-3">
+        {/* Left — countdown badge (visible to all, info sobre prazo) */}
+        <div className="min-w-0">
           {match.deadline_utc && (
             <Countdown deadlineUtc={match.deadline_utc} onExpire={handleExpire} />
           )}
-
-          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-            {justSaved && (
-              <span className="flex items-center gap-1 text-win text-xs font-semibold">
-                <CheckCircle2 size={13} />
-                Salvo!
-              </span>
-            )}
-
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isDisabled}
-              className={[
-                'h-9 px-5 rounded-btn text-sm font-semibold transition-all duration-150',
-                'bg-ink text-card',
-                'hover:opacity-90 active:scale-[.98]',
-                'disabled:opacity-40',
-                pending ? 'cursor-wait' : '',
-              ].join(' ')}
-            >
-              {pending ? 'Salvando…' : savedPrediction || match.my_bet ? 'Atualizar' : 'Enviar'}
-            </button>
-          </div>
         </div>
-      )}
+
+        {/* Right — submit (paid) or lock badge (pending) */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {canBet ? (
+            <>
+              {justSaved && (
+                <span className="flex items-center gap-1 text-win text-xs font-semibold">
+                  <CheckCircle2 size={13} />
+                  Salvo!
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={pending}
+                className={[
+                  'h-9 px-5 rounded-btn text-sm font-semibold transition-all duration-150',
+                  'bg-ink text-card',
+                  'hover:opacity-90 active:scale-[.98]',
+                  'disabled:opacity-40',
+                  pending ? 'cursor-wait' : '',
+                ].join(' ')}
+              >
+                {pending ? 'Salvando…' : savedPrediction || match.my_bet ? 'Atualizar' : 'Enviar'}
+              </button>
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-card-sunken border border-hairline">
+              <Lock size={10} strokeWidth={2} className="text-ink-faint" />
+              <span className="text-[10px] font-bold uppercase tracking-wide text-ink-faint">
+                Bloqueado
+              </span>
+            </span>
+          )}
+        </div>
+      </div>
 
       {error && (
         <p className="mt-2 text-xs text-loss font-medium">{error}</p>
