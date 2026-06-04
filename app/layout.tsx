@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono, Fraunces } from 'next/font/google'
+import { NavigationProgress } from '@/components/ui/NavigationProgress'
 import './globals.css'
 
 const geistSans = Geist({
@@ -42,7 +43,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         'h-full antialiased',
       ].join(' ')}
     >
-      <body className="h-full bg-paper text-ink">{children}</body>
+      <body className="h-full bg-paper text-ink">
+          <NavigationProgress>{children}</NavigationProgress>
+        </body>
     </html>
   )
 }

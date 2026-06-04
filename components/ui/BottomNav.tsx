@@ -2,18 +2,27 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { Home, Target, Trophy, Scale, User } from 'lucide-react'
+import { useNavigation } from './NavigationProgress'
 
 const NAV_ITEMS = [
-  { href: '/inicio', label: 'Início', icon: Home },
-  { href: '/palpite', label: 'Palpite', icon: Target },
-  { href: '/ranking', label: 'Ranking', icon: Trophy },
-  { href: '/desempate', label: 'Desempate', icon: Scale },
-  { href: '/perfil', label: 'Perfil', icon: User },
+  { href: '/inicio',    label: 'Início',    icon: Home   },
+  { href: '/palpite',   label: 'Palpite',   icon: Target },
+  { href: '/ranking',   label: 'Ranking',   icon: Trophy },
+  { href: '/desempate', label: 'Desempate', icon: Scale  },
+  { href: '/perfil',    label: 'Perfil',    icon: User   },
 ] as const
 
 export function BottomNav() {
   const pathname = usePathname()
+  const { startNavigation } = useNavigation()
+  const [pressedHref, setPressedHref] = useState<string | null>(null)
+
+  // Sync: clear optimistic state once the pathname actually changes
+  useEffect(() => {
+    setPressedHref(null)
+  }, [pathname])
 
   return (
     <nav
@@ -24,22 +33,32 @@ export function BottomNav() {
       <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/')
+            const isCurrent = pathname === href || pathname.startsWith(href + '/')
+            const active    = isCurrent || pressedHref === href
+
             return (
               <Link
                 key={href}
                 href={href}
+                onClick={() => {
+                  if (!isCurrent) {
+                    setPressedHref(href)
+                    startNavigation()
+                  }
+                }}
                 className={[
                   'flex flex-1 flex-col items-center justify-center pt-2 pb-2.5 min-h-[56px]',
-                  'transition-colors duration-150',
+                  // Instant color transition + tactile scale on press
+                  'transition-[colors,transform,opacity] duration-100',
+                  'active:scale-[0.88] active:opacity-70',
                   active ? 'text-ink' : 'text-ink-faint',
                 ].join(' ')}
               >
-                {/* Top brand indicator */}
+                {/* Brand bar indicator */}
                 <span
                   className={[
-                    'h-0.5 w-5 rounded-full mb-1.5 transition-all duration-200',
-                    active ? 'bg-brand opacity-100' : 'bg-transparent opacity-0',
+                    'h-0.5 rounded-full mb-1.5 transition-all duration-200',
+                    active ? 'w-5 bg-brand opacity-100' : 'w-0 bg-transparent opacity-0',
                   ].join(' ')}
                 />
                 <Icon
@@ -49,7 +68,7 @@ export function BottomNav() {
                 />
                 <span
                   className={[
-                    'mt-1 text-[10px] tracking-wide',
+                    'mt-1 text-[10px] tracking-wide transition-all duration-150',
                     active ? 'font-semibold text-ink' : 'font-medium text-ink-faint',
                   ].join(' ')}
                 >
