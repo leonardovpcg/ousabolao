@@ -43,7 +43,7 @@ export function MatchModal({ open, onClose, teams, match }: Props) {
       onClose={onClose}
       title={match ? 'Editar partida' : 'Nova partida'}
     >
-      <form action={formAction} className="flex flex-col gap-4">
+      <form key={match?.id ?? 'new'} action={formAction} className="flex flex-col gap-4">
         {match && <input type="hidden" name="id" value={match.id} />}
 
         {state && 'error' in state && (

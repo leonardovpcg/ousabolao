@@ -183,7 +183,7 @@ function MatchCard({
             {cfg.label}
           </span>
 
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-0.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
             <button
               onClick={onEdit}
               className="p-1.5 rounded-[8px] text-ink-faint hover:bg-hairline hover:text-ink transition-colors"
