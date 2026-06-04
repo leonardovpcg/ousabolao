@@ -1,10 +1,12 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 
 export type AuthState = { error: string } | null
+export type ResetPasswordState = { error: string } | { success: true } | null
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Informe o email').email('Email inválido'),
@@ -83,4 +85,62 @@ export async function signOut() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/login')
+}
+
+const resetSchema = z.object({
+  email: z.string().min(1, 'Informe o email').email('Email inválido'),
+})
+
+export async function requestPasswordReset(
+  _prev: ResetPasswordState,
+  formData: FormData,
+): Promise<ResetPasswordState> {
+  const parsed = resetSchema.safeParse({ email: formData.get('email') })
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Email inválido.' }
+  }
+
+  const h = await headers()
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000'
+  const proto = h.get('x-forwarded-proto') ?? 'https'
+  const redirectTo = `${proto}://${host}/api/auth/callback?next=/redefinir-senha`
+
+  const supabase = await createClient()
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, { redirectTo })
+
+  // Always success — never reveal if the email exists
+  return { success: true }
+}
+
+const newPasswordSchema = z
+  .object({
+    password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: 'As senhas não coincidem',
+    path: ['confirmPassword'],
+  })
+
+export async function updatePassword(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const parsed = newPasswordSchema.safeParse({
+    password: formData.get('password'),
+    confirmPassword: formData.get('confirmPassword'),
+  })
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password })
+
+  if (error) {
+    return { error: 'Não foi possível atualizar a senha. Tente novamente.' }
+  }
+
+  redirect('/inicio')
 }
