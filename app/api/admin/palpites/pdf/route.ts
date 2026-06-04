@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   let matchQuery = supabase
     .from('matches')
     .select(`
-      id, match_date, phase, round, home_score, away_score, status,
+      id, match_date, phase, round, match_group, home_score, away_score, status,
       home_team:national_teams!home_team_national_id(id, name, country, emblem_url),
       away_team:national_teams!away_team_national_id(id, name, country, emblem_url)
     `)
@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     id: string
     match_date: string
     round: string | null
+    match_group: string | null
     home_score: number | null
     away_score: number | null
     status: string
@@ -99,6 +100,8 @@ export async function GET(request: NextRequest) {
     away_emblem: m.away_team?.emblem_url ?? null,
     date_label:  matchDayLabel(m.match_date),
     score:       m.home_score !== null ? `${m.home_score}–${m.away_score}` : null,
+    match_group: m.match_group ?? null,
+    round:       m.round ?? null,
   }))
 
   // Build bet map userId → matchId → bet
