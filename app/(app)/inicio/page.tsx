@@ -219,9 +219,9 @@ export default async function InicioPage() {
   return (
     <div>
       {/* Greeting */}
-      <div className="mb-6">
-        <p className="text-sm text-ink-soft">{greeting},</p>
-        <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-tight">
+      <div className="mb-6 flex items-baseline gap-2 flex-wrap">
+        <span className="text-base font-medium text-ink-soft">{greeting},</span>
+        <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-none">
           {firstName}
         </h1>
       </div>

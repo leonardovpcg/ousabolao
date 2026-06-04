@@ -105,3 +105,22 @@ body {
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
 }
+
+/* ── Shimmer skeleton ────────────────────────────── */
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+
+@utility skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-hairline)     0%,
+    var(--color-card-sunken)  40%,
+    var(--color-paper)        55%,
+    var(--color-card-sunken)  70%,
+    var(--color-hairline)     100%
+  );
+  background-size: 300% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
