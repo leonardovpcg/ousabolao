@@ -82,37 +82,32 @@ export function Sidebar({ isAdmin = false }: Props) {
             </Link>
           )
         })}
-
-        {/* Admin */}
-        {isAdmin && (
-          <>
-            <div className="pt-2 pb-1">
-              <div className="h-px bg-hairline" />
-            </div>
-            <Link
-              href="/admin/jogos"
-              onClick={() => handleNav('/admin/jogos', adminActive)}
-              className={[
-                'group relative flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm',
-                'transition-all duration-150',
-                adminActive
-                  ? 'bg-brand text-card font-semibold shadow-[0_2px_8px_rgba(200,136,30,0.30)]'
-                  : 'bg-brand/10 text-brand-deep font-medium hover:bg-brand/18 hover:text-brand-deep',
-              ].join(' ')}
-            >
-              <ShieldCheck
-                size={15}
-                strokeWidth={adminActive ? 2 : 1.75}
-                className={adminActive ? 'text-card' : 'text-brand'}
-                aria-hidden="true"
-              />
-              <span>Painel Admin</span>
-            </Link>
-          </>
-        )}
       </nav>
 
-      <div className="pb-5" />
+      {/* Admin button — pinned to footer */}
+      {isAdmin && (
+        <div className="px-3 pb-5 border-t border-hairline pt-3">
+          <Link
+            href="/admin/jogos"
+            onClick={() => handleNav('/admin/jogos', adminActive)}
+            className={[
+              'flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm w-full',
+              'transition-all duration-150',
+              adminActive
+                ? 'bg-brand text-card font-semibold shadow-[0_2px_8px_rgba(200,136,30,0.30)]'
+                : 'bg-brand/10 text-brand-deep font-medium hover:bg-brand/18 hover:text-brand-deep',
+            ].join(' ')}
+          >
+            <ShieldCheck
+              size={15}
+              strokeWidth={adminActive ? 2 : 1.75}
+              className={adminActive ? 'text-card' : 'text-brand'}
+              aria-hidden="true"
+            />
+            <span>Painel Admin</span>
+          </Link>
+        </div>
+      )}
     </aside>
   )
 }
