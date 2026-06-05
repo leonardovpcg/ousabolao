@@ -118,7 +118,7 @@ function Stepper({
   )
 }
 
-// ── Others' bets list ────────────────────────────────────────────
+// ── Others' bets list (accordion) ────────────────────────────────
 
 function OtherBetsList({
   bets,
@@ -127,32 +127,54 @@ function OtherBetsList({
   bets: OtherBet[]
   isFinished: boolean
 }) {
+  const [open, setOpen] = useState(false)
+
   if (bets.length === 0) return null
 
+  const label = isFinished ? 'Palpites dos parças' : 'Palpites revelados'
+
   return (
-    <div className="mt-4 pt-4 border-t border-hairline">
-      <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-wider mb-2.5">
-        {isFinished ? 'Palpites dos parças' : 'Palpites revelados'}
-      </p>
-      <div className="flex flex-col gap-1.5">
-        {bets.map((b) => (
-          <div key={b.user_id} className="flex items-center justify-between gap-2">
-            <span className="text-xs text-ink-soft truncate flex-1">
-              {b.user_name ?? 'Participante'}
-            </span>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="font-display text-sm font-semibold text-ink nums">
-                {b.home_prediction} × {b.away_prediction}
+    <div className="mt-4 border-t border-hairline">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="w-full flex items-center justify-between py-3 text-left group"
+      >
+        <span className="text-[11px] font-semibold text-ink-faint uppercase tracking-wider group-hover:text-ink-soft transition-colors">
+          {label}
+        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[11px] font-semibold text-ink-faint tabular-nums">
+            {bets.length}
+          </span>
+          {open
+            ? <ChevronUp size={14} strokeWidth={2} className="text-ink-faint" />
+            : <ChevronDown size={14} strokeWidth={2} className="text-ink-faint" />
+          }
+        </div>
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-1.5 pb-2">
+          {bets.map((b) => (
+            <div key={b.user_id} className="flex items-center justify-between gap-2">
+              <span className="text-xs text-ink-soft truncate flex-1">
+                {b.user_name ?? 'Participante'}
               </span>
-              {isFinished && b.points !== null && (
-                <span className={`text-xs min-w-[40px] text-right ${POINTS_COLOR[b.points] ?? 'text-ink-faint'}`}>
-                  {b.points} pts
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="font-display text-sm font-semibold text-ink nums">
+                  {b.home_prediction} × {b.away_prediction}
                 </span>
-              )}
+                {isFinished && b.points !== null && (
+                  <span className={`text-xs min-w-[40px] text-right ${POINTS_COLOR[b.points] ?? 'text-ink-faint'}`}>
+                    {b.points} pts
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
