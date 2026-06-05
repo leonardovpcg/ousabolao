@@ -174,7 +174,7 @@ export default async function InicioPage() {
       .maybeSingle(),
     supabase.from('ranking').select('*', { count: 'exact', head: true }),
     supabase.from('bets').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('pool_settings').select('quota_value').single(),
+    supabase.from('pool_settings').select('quota_value, current_phase').single(),
     supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
@@ -201,6 +201,9 @@ export default async function InicioPage() {
 
   // Prize
   const quotaValue = poolSettings?.quota_value ?? 100
+  const currentPhaseLabel = poolSettings?.current_phase
+    ? (PHASE_LABELS[poolSettings.current_phase] ?? poolSettings.current_phase)
+    : null
   const paid = paidCount ?? 0
   const prize = quotaValue * paid
   const prizeFormatted = new Intl.NumberFormat('pt-BR', {
@@ -219,11 +222,18 @@ export default async function InicioPage() {
   return (
     <div>
       {/* Greeting */}
-      <div className="mb-6 flex items-baseline gap-2 flex-wrap">
-        <span className="text-base font-medium text-ink-soft">{greeting},</span>
-        <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-none">
-          {firstName}
-        </h1>
+      <div className="mb-6">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-base font-medium text-ink-soft">{greeting},</span>
+          <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-none">
+            {firstName}
+          </h1>
+        </div>
+        {currentPhaseLabel && (
+          <p className="mt-1.5 text-xs font-semibold text-ink-faint uppercase tracking-widest">
+            Copa 2026 · {currentPhaseLabel}
+          </p>
+        )}
       </div>
 
       {/* Payment-pending banner */}
