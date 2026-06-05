@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   Swords, Trophy, Calendar, Users, Scale, CreditCard,
-  LayoutGrid, BookOpen, ChevronRight,
+  LayoutGrid, BookOpen, ChevronRight, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { APP_TZ, formatDateTime } from '@/lib/utils/datetime'
@@ -47,7 +47,30 @@ type RawPhase = {
 
 type MatchRow = { match_date: string; phase: string; round: string | null }
 
-// ── Deadline ──────────────────────────────────────────────────────
+type UpcomingMatch = {
+  id: string
+  match_date: string
+  phase: string
+  round: string | null
+  match_group: string | null
+  home_team_national_id: string | null
+  away_team_national_id: string | null
+}
+
+type NationalTeam = {
+  id: string
+  name: string
+  country: string | null
+  emblem_url: string | null
+}
+
+type PendingProfile = {
+  id: string
+  name: string | null
+  email: string | null
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
 
 function computeNextDeadline(openPhases: RawPhase[], matches: MatchRow[]) {
   const now = Date.now()
@@ -88,6 +111,17 @@ function computeNextDeadline(openPhases: RawPhase[], matches: MatchRow[]) {
   return nearest
 }
 
+function formatMatchLabel(iso: string): string {
+  const d = new Date(iso)
+  const day = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TZ, day: 'numeric', month: 'short',
+  }).format(d).replace('. ', ' de ')
+  const time = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TZ, hour: '2-digit', minute: '2-digit',
+  }).format(d).replace(':', 'h')
+  return `${day} · ${time}`
+}
+
 // ── StatusBadge ───────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
@@ -117,6 +151,9 @@ export default async function AdminVisaoGeralPage() {
     { data: allPhases },
     { count: pendingResultsCount },
     { count: totalMatchesCount },
+    { data: upcomingMatchRows },
+    { data: pendingProfiles },
+    { data: nationalTeamRows },
   ] = await Promise.all([
     supabase.from('pool_settings').select('quota_value, current_phase').maybeSingle(),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('payment_status', 'paid'),
@@ -124,6 +161,21 @@ export default async function AdminVisaoGeralPage() {
     supabase.from('tournament_phases').select('*').order('display_order'),
     supabase.from('matches').select('*', { count: 'exact', head: true }).eq('category', 'national').is('home_score', null),
     supabase.from('matches').select('*', { count: 'exact', head: true }).eq('category', 'national'),
+    supabase
+      .from('matches')
+      .select('id, match_date, phase, round, match_group, home_team_national_id, away_team_national_id')
+      .eq('category', 'national')
+      .is('home_score', null)
+      .gt('match_date', new Date().toISOString())
+      .order('match_date')
+      .limit(6),
+    supabase
+      .from('profiles')
+      .select('id, name, email')
+      .eq('payment_status', 'pending')
+      .order('name')
+      .limit(20),
+    supabase.from('national_teams').select('id, name, country, emblem_url'),
   ])
 
   // Deadline calculation requires matches for open phases
@@ -152,6 +204,15 @@ export default async function AdminVisaoGeralPage() {
 
   const currentPhaseName = poolSettings?.current_phase ?? null
   const currentPhaseRow  = (allPhases ?? []).find((p) => p.phase === currentPhaseName)
+
+  // Team map for upcoming matches
+  const teamMap = new Map<string, NationalTeam>()
+  for (const t of nationalTeamRows ?? []) {
+    teamMap.set(t.id, t as NationalTeam)
+  }
+
+  const upcomingMatches = (upcomingMatchRows ?? []) as UpcomingMatch[]
+  const pendingList     = (pendingProfiles ?? []) as PendingProfile[]
 
   const nowLabel = new Intl.DateTimeFormat('pt-BR', {
     timeZone: APP_TZ,
@@ -194,7 +255,6 @@ export default async function AdminVisaoGeralPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          {/* Phase info */}
           <div>
             <h2 className="font-display text-xl lg:text-2xl font-bold text-ink leading-tight">
               {currentPhaseName
@@ -212,7 +272,6 @@ export default async function AdminVisaoGeralPage() {
             </div>
           </div>
 
-          {/* Deadline */}
           <div className="sm:text-right flex-shrink-0">
             <p className="text-[10px] font-bold text-ink-faint uppercase tracking-wider mb-1">
               Próxima trava
@@ -310,8 +369,139 @@ export default async function AdminVisaoGeralPage() {
         </div>
       </div>
 
-      {/* ── Quick access ────────────────────────────────────────── */}
-      <div>
+      {/* ── Desktop: painéis detalhados (substitui acesso rápido) ── */}
+      <div className="hidden lg:grid lg:grid-cols-2 gap-4">
+
+        {/* Próximos jogos */}
+        <div
+          className="rounded-card bg-card border border-hairline p-5"
+          style={{ boxShadow: '0 1px 2px rgba(20,18,25,.04), 0 8px 24px rgba(20,18,25,.06)' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-bold text-ink-faint uppercase tracking-wider">
+              Próximos jogos
+            </p>
+            <Link
+              href="/admin/resultados"
+              className="text-[11px] text-brand hover:underline underline-offset-2"
+            >
+              Ver todos
+            </Link>
+          </div>
+
+          {upcomingMatches.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <Calendar size={22} strokeWidth={1.5} className="text-ink-faint/50" />
+              <p className="text-xs text-ink-faint text-center">
+                Nenhum jogo programado
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col divide-y divide-hairline">
+              {upcomingMatches.map((m) => {
+                const home = m.home_team_national_id ? teamMap.get(m.home_team_national_id) : null
+                const away = m.away_team_national_id ? teamMap.get(m.away_team_national_id) : null
+                const phaseLabel = PHASE_LABELS[m.phase] ?? m.phase
+                const roundLabel = m.round ? (ROUND_LABELS[m.round] ?? `R${m.round}`) : null
+                const ctxLabel = [m.match_group && `Gr. ${m.match_group}`, roundLabel]
+                  .filter(Boolean).join(' · ')
+
+                return (
+                  <div key={m.id} className="flex items-center justify-between py-2.5 gap-3">
+                    {/* Teams */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      {home?.emblem_url
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={home.emblem_url} alt={home.name} className="w-5 h-5 object-contain flex-shrink-0 rounded-sm" />
+                        : <div className="w-5 h-5 rounded-sm bg-card-sunken border border-hairline flex-shrink-0" />
+                      }
+                      <span className="text-xs font-semibold text-ink truncate max-w-[72px]">
+                        {home?.name ?? '—'}
+                      </span>
+                      <span className="text-[10px] text-ink-faint flex-shrink-0">×</span>
+                      {away?.emblem_url
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={away.emblem_url} alt={away.name} className="w-5 h-5 object-contain flex-shrink-0 rounded-sm" />
+                        : <div className="w-5 h-5 rounded-sm bg-card-sunken border border-hairline flex-shrink-0" />
+                      }
+                      <span className="text-xs font-semibold text-ink truncate max-w-[72px]">
+                        {away?.name ?? '—'}
+                      </span>
+                    </div>
+
+                    {/* Date + context */}
+                    <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+                      <span className="text-[11px] font-medium text-ink-soft tabular-nums">
+                        {formatMatchLabel(m.match_date)}
+                      </span>
+                      {ctxLabel && (
+                        <span className="text-[10px] text-ink-faint">{ctxLabel}</span>
+                      )}
+                      {!ctxLabel && (
+                        <span className="text-[10px] text-ink-faint">{phaseLabel}</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Pendentes de pagamento */}
+        <div
+          className="rounded-card bg-card border border-hairline p-5"
+          style={{ boxShadow: '0 1px 2px rgba(20,18,25,.04), 0 8px 24px rgba(20,18,25,.06)' }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-bold text-ink-faint uppercase tracking-wider">
+              Pendentes de pagamento
+            </p>
+            <Link
+              href="/admin/participantes"
+              className="text-[11px] text-brand hover:underline underline-offset-2"
+            >
+              Gerenciar
+            </Link>
+          </div>
+
+          {pendingList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <CheckCircle2 size={22} strokeWidth={1.5} className="text-win" />
+              <p className="text-xs text-win font-medium">Todos os participantes estão em dia!</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-loss/5 border border-loss/15">
+                <AlertCircle size={13} strokeWidth={1.75} className="text-loss flex-shrink-0" />
+                <span className="text-xs text-loss font-medium">
+                  {pendingList.length} participante{pendingList.length !== 1 ? 's' : ''} com pagamento pendente
+                </span>
+              </div>
+              <div className="flex flex-col divide-y divide-hairline">
+                {pendingList.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between py-2 gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-ink truncate">
+                        {p.name ?? 'Sem nome'}
+                      </p>
+                      {p.email && (
+                        <p className="text-[10px] text-ink-faint truncate">{p.email}</p>
+                      )}
+                    </div>
+                    <span className="flex-shrink-0 text-[10px] font-bold uppercase tracking-wide text-loss bg-loss/8 border border-loss/15 px-2 py-0.5 rounded-full">
+                      Pendente
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Quick access (mobile/tablet only) ───────────────────── */}
+      <div className="lg:hidden">
         <p className="text-[10px] font-bold text-ink-faint uppercase tracking-wider mb-3">
           Acesso Rápido
         </p>
