@@ -1,4 +1,6 @@
 import Image from 'next/image'
+import Link from 'next/link'
+import { LayoutDashboard } from 'lucide-react'
 import logo from '@/app/logo.png'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from './Sidebar'
@@ -20,30 +22,42 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto w-full max-w-[840px] px-4 py-6 lg:px-8 lg:py-8">
 
             {/* ── Mobile brand block — inline, scrolls with content ─────── */}
-            {/* Hidden on desktop where sidebar already shows the branding  */}
             <div className="lg:hidden mb-6">
-              {/* Logo + wordmark row */}
-              <div className="flex items-center gap-2.5 mb-4">
-                <Image
-                  src={logo}
-                  alt=""
-                  width={36}
-                  height={36}
-                  priority
-                  className="flex-shrink-0 rounded-[10px]"
-                  style={{ boxShadow: '0 0 0 1px rgba(200,136,30,.22)' }}
-                />
-                <div className="flex flex-col">
-                  <p className="font-display text-[1.125rem] font-bold text-ink tracking-tight leading-none">
-                    Ousa<span className="text-brand">Bolão</span>
-                  </p>
-                  <p className="text-[10px] font-medium text-ink-faint leading-none mt-[3px] tracking-wide">
-                    O Bolão dos Parças
-                  </p>
+              <div className="flex items-center justify-between mb-4">
+                {/* Logo + wordmark */}
+                <div className="flex items-center gap-2.5">
+                  <Image
+                    src={logo}
+                    alt=""
+                    width={36}
+                    height={36}
+                    priority
+                    className="flex-shrink-0 rounded-[10px]"
+                    style={{ boxShadow: '0 0 0 1px rgba(200,136,30,.22)' }}
+                  />
+                  <div className="flex flex-col">
+                    <p className="font-display text-[1.125rem] font-bold text-ink tracking-tight leading-none">
+                      Ousa<span className="text-brand">Bolão</span>
+                    </p>
+                    <p className="text-[10px] font-medium text-ink-faint leading-none mt-[3px] tracking-wide">
+                      O Bolão dos Parças
+                    </p>
+                  </div>
                 </div>
+
+                {/* Admin shortcut — visible only for admins */}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    aria-label="Painel admin"
+                    className="p-2 rounded-[10px] text-ink-faint hover:text-brand hover:bg-brand/6 transition-colors"
+                  >
+                    <LayoutDashboard size={18} strokeWidth={1.5} />
+                  </Link>
+                )}
               </div>
 
-              {/* Gradient separator — visual transition into section content */}
+              {/* Gradient separator */}
               <div className="h-px bg-gradient-to-r from-brand/35 via-hairline to-transparent" />
             </div>
 
