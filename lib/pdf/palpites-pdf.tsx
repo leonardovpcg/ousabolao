@@ -36,18 +36,18 @@ export type PalpitesPdfData = {
 // Layout: MATCHES as rows (vertical, auto-paginated)
 //         PLAYERS as columns (horizontal, chunked if many)
 //
-// A4 landscape: 841.89 × 595.28 pt
+// A3 landscape: 1190.55 × 841.89 pt — more room for player columns
 
-const MARGIN_H       = 32
-const USABLE_W       = 841.89 - MARGIN_H * 2   // 777.89 pt
-const MATCH_COL_W    = 106                       // fixed left column: match info
-const AVAIL_PLAYER_W = USABLE_W - MATCH_COL_W   // 671.89 pt for player columns
+const MARGIN_H       = 36
+const USABLE_W       = 1190.55 - MARGIN_H * 2  // 1118.55 pt
+const MATCH_COL_W    = 96                        // fixed left column: flags + meta (no abbreviations)
+const AVAIL_PLAYER_W = USABLE_W - MATCH_COL_W   // 1022.55 pt for player columns
 const MIN_PLAYER_COL = 40                        // minimum readable column width
-const MAX_CHUNK      = Math.floor(AVAIL_PLAYER_W / MIN_PLAYER_COL)  // ≈ 16
+const MAX_CHUNK      = Math.floor(AVAIL_PLAYER_W / MIN_PLAYER_COL)  // ≈ 25
 
 function calcPlayerCol(totalPlayers: number): { chunkSize: number; colW: number } {
   const chunkSize = Math.min(totalPlayers, MAX_CHUNK)
-  const colW = Math.min(72, Math.floor(AVAIL_PLAYER_W / Math.max(chunkSize, 1)))
+  const colW = Math.min(68, Math.floor(AVAIL_PLAYER_W / Math.max(chunkSize, 1)))
   return { chunkSize, colW }
 }
 
@@ -124,9 +124,9 @@ const s = StyleSheet.create({
 
   // Match column (left) — body
   matchTeamRow:  { flexDirection: 'row', alignItems: 'center' },
-  matchFlag:     { width: 10, height: 7, marginRight: 3 },
-  matchAbbrs:    { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: INK, flex: 1 },
-  matchMeta:     { fontSize: 5.5, color: INK_FAINT, marginTop: 2 },
+  matchFlag:     { width: 14, height: 10, marginRight: 3 },
+  matchVs:       { fontSize: 7, color: INK_FAINT, marginHorizontal: 3 },
+  matchMeta:     { fontSize: 5.5, color: INK_FAINT, marginTop: 3 },
   matchScore:    { fontSize: 7, fontFamily: 'Helvetica-Bold', color: BRAND, marginTop: 2 },
 
   // Player column — header
@@ -170,7 +170,7 @@ function ChunkPage({ data, chunkRows, pageNum, totalPages, colW }: ChunkPageProp
   const respondents = rows.filter(r => r.bets.some(b => b.prediction !== null)).length
 
   return (
-    <Page size="A4" orientation="landscape" style={s.page}>
+    <Page size="A3" orientation="landscape" style={s.page}>
 
       {/* ── Page header (repeats on vertical overflow pages) ── */}
       <View style={s.pageHeader} fixed>
@@ -247,20 +247,20 @@ function ChunkPage({ data, chunkRows, pageNum, totalPages, colW }: ChunkPageProp
           return (
             <View key={matchIdx} style={rowStyle} wrap={false}>
 
-              {/* Match info cell */}
+              {/* Match info cell — flags only, no abbreviations */}
               <View style={[s.cell, { width: MATCH_COL_W }]}>
                 <View style={s.matchTeamRow}>
-                  {match.home_emblem ? (
+                  {match.home_emblem
                     // eslint-disable-next-line jsx-a11y/alt-text
-                    <Image src={match.home_emblem} style={s.matchFlag} />
-                  ) : null}
-                  <Text style={s.matchAbbrs}>
-                    {match.home_abbr} × {match.away_abbr}
-                  </Text>
-                  {match.away_emblem ? (
+                    ? <Image src={match.home_emblem} style={s.matchFlag} />
+                    : <View style={[s.matchFlag, { backgroundColor: HAIRLINE }]} />
+                  }
+                  <Text style={s.matchVs}>×</Text>
+                  {match.away_emblem
                     // eslint-disable-next-line jsx-a11y/alt-text
-                    <Image src={match.away_emblem} style={[s.matchFlag, { marginRight: 0, marginLeft: 3 }]} />
-                  ) : null}
+                    ? <Image src={match.away_emblem} style={[s.matchFlag, { marginRight: 0, marginLeft: 0 }]} />
+                    : <View style={[s.matchFlag, { backgroundColor: HAIRLINE, marginRight: 0, marginLeft: 0 }]} />
+                  }
                 </View>
                 <Text style={s.matchMeta}>{metaLine}</Text>
                 {isFinished && <Text style={s.matchScore}>{match.score}</Text>}

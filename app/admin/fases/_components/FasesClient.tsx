@@ -244,7 +244,7 @@ export function FasesClient({
     'outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 focus:bg-card transition-all',
   ].join(' ')
 
-  const selectCls = inputCls + ' cursor-pointer pr-8'
+  const selectCls = inputCls + ' cursor-pointer pr-8 appearance-none'
 
   // ── Render ────────────────────────────────────────────────
   return (
