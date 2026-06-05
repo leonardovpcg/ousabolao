@@ -128,11 +128,49 @@ export function Sidebar({ isAdmin = false, collapsed, onToggle }: Props) {
             </Link>
           )
         })}
+
+        {/* Painel Admin — same composition as nav items, only for admins */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            onClick={() => handleNav('/admin', adminActive)}
+            title={collapsed ? 'Painel Admin' : undefined}
+            className={[
+              'group relative flex items-center gap-3 rounded-[10px] py-2.5 text-sm',
+              'transition-all duration-150 whitespace-nowrap',
+              collapsed ? 'justify-center px-0' : 'px-3',
+              adminActive
+                ? 'bg-brand/8 text-ink font-medium'
+                : 'text-ink-soft hover:bg-hairline/60 hover:text-ink',
+            ].join(' ')}
+          >
+            {!collapsed && (
+              <span
+                className={[
+                  'absolute left-0 top-2.5 bottom-2.5 w-0.5 rounded-full transition-opacity',
+                  adminActive ? 'opacity-100 bg-brand' : 'opacity-0',
+                ].join(' ')}
+              />
+            )}
+            <ShieldCheck
+              size={18}
+              strokeWidth={1.5}
+              className={[
+                'flex-shrink-0',
+                adminActive ? 'text-brand' : 'text-ink-faint group-hover:text-ink-soft',
+              ].join(' ')}
+              aria-hidden
+            />
+            {!collapsed && <span>Painel Admin</span>}
+          </Link>
+        )}
       </nav>
 
-      {/* ── Toggle + Admin footer ────────────────────────────── */}
-      <div className="flex-shrink-0 border-t px-2 pt-2 pb-3 space-y-0.5" style={{ borderColor: 'var(--color-hairline)' }}>
-        {/* Toggle */}
+      {/* ── Toggle (único no rodapé) ─────────────────────────── */}
+      <div
+        className="flex-shrink-0 border-t px-2 pt-2 pb-3"
+        style={{ borderColor: 'rgba(200,136,30,.18)' }}
+      >
         <button
           onClick={onToggle}
           title={collapsed ? 'Expandir menu' : 'Recolher menu'}
@@ -153,31 +191,6 @@ export function Sidebar({ isAdmin = false, collapsed, onToggle }: Props) {
             )
           }
         </button>
-
-        {/* Admin shortcut */}
-        {isAdmin && (
-          <Link
-            href="/admin"
-            onClick={() => handleNav('/admin', adminActive)}
-            title={collapsed ? 'Painel Admin' : undefined}
-            className={[
-              'flex items-center rounded-[10px] py-2.5 text-sm w-full whitespace-nowrap',
-              'transition-all duration-150',
-              collapsed ? 'justify-center px-0 gap-0' : 'px-3 gap-2.5',
-              adminActive
-                ? 'bg-brand text-card font-semibold shadow-[0_2px_8px_rgba(200,136,30,0.30)]'
-                : 'bg-brand/10 text-brand-deep font-medium hover:bg-brand/18',
-            ].join(' ')}
-          >
-            <ShieldCheck
-              size={15}
-              strokeWidth={adminActive ? 2 : 1.75}
-              className={['flex-shrink-0', adminActive ? 'text-card' : 'text-brand'].join(' ')}
-              aria-hidden
-            />
-            {!collapsed && <span>Painel Admin</span>}
-          </Link>
-        )}
       </div>
     </aside>
   )
