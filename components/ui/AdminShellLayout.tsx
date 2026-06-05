@@ -49,7 +49,7 @@ export function AdminShellLayout({ children, currentPhase }: Props) {
         style={{ transition: 'padding-left 300ms ease-in-out' }}
       >
         <main className="flex-1 min-w-0">
-          <div className="w-full px-4 py-6 lg:px-8 lg:py-8">
+          <div className="relative w-full px-4 py-6 lg:px-8 lg:py-8">
 
             {/* ── Mobile inline header ──────────────────────────── */}
             <div className="lg:hidden mb-6">
@@ -92,6 +92,24 @@ export function AdminShellLayout({ children, currentPhase }: Props) {
                 </div>
               </div>
               <div className="h-px bg-gradient-to-r from-brand/35 via-hairline to-transparent" />
+            </div>
+
+            {/* Desktop: ações fixas no canto superior direito, permanentes entre seções */}
+            <div className="hidden lg:flex items-center gap-0.5 absolute top-8 right-8 z-10">
+              <Link
+                href="/inicio"
+                title="Voltar ao app"
+                className="p-1.5 rounded-[9px] text-ink-faint hover:text-ink-soft hover:bg-hairline/80 transition-colors"
+              >
+                <House size={16} strokeWidth={1.5} />
+              </Link>
+              <button
+                onClick={handleLogout}
+                title="Sair"
+                className="p-1.5 rounded-[9px] text-ink-faint hover:text-loss hover:bg-loss/8 transition-colors"
+              >
+                <LogOut size={16} strokeWidth={1.5} />
+              </button>
             </div>
 
             {children}

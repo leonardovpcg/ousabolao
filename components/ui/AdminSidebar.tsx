@@ -2,18 +2,17 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   Swords, Trophy, Calendar, Users, Scale, CreditCard,
   LayoutGrid, BookOpen, ChevronLeft, ChevronRight, LayoutDashboard,
-  House, LogOut,
 } from 'lucide-react'
 import logo from '@/app/logo.png'
-import { createClient } from '@/lib/supabase/client'
 
 // ── Navigation ────────────────────────────────────────────────
 
 const ADMIN_NAV = [
+  { href: '/admin/visao-geral',   label: 'Visão Geral',     icon: LayoutDashboard },
   { href: '/admin/jogos',         label: 'Jogos',           icon: Swords          },
   { href: '/admin/resultados',    label: 'Resultados',      icon: Trophy          },
   { href: '/admin/fases',         label: 'Fases',           icon: Calendar        },
@@ -89,15 +88,6 @@ function NavItem({
 
 export function AdminSidebar({ currentPhase, collapsed, onToggle }: Props) {
   const pathname = usePathname()
-  const router   = useRouter()
-
-  async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
-  const visaoGeralActive = pathname === '/admin/visao-geral' || pathname.startsWith('/admin/visao-geral/')
 
   return (
     <aside
@@ -149,67 +139,6 @@ export function AdminSidebar({ currentPhase, collapsed, onToggle }: Props) {
         className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-0.5"
         aria-label="Seções do painel"
       >
-        {/* Visão Geral — item especial com ações no hover */}
-        <div
-          className={[
-            'group relative flex items-center rounded-[10px] text-sm transition-all duration-150',
-            visaoGeralActive
-              ? 'bg-brand/8 text-ink font-medium'
-              : 'text-ink-soft hover:bg-hairline/60 hover:text-ink',
-          ].join(' ')}
-        >
-          {!collapsed && (
-            <span
-              className={[
-                'absolute left-0 top-2.5 bottom-2.5 w-0.5 rounded-full transition-opacity',
-                visaoGeralActive ? 'opacity-100 bg-brand' : 'opacity-0',
-              ].join(' ')}
-            />
-          )}
-
-          {/* Link principal */}
-          <Link
-            href="/admin/visao-geral"
-            title={collapsed ? 'Visão Geral' : undefined}
-            className={[
-              'flex flex-1 items-center gap-3 py-2.5 whitespace-nowrap min-w-0',
-              collapsed ? 'justify-center px-0' : 'pl-3 pr-1',
-            ].join(' ')}
-          >
-            <LayoutDashboard
-              size={16}
-              strokeWidth={1.5}
-              className={[
-                'flex-shrink-0',
-                visaoGeralActive ? 'text-brand' : 'text-ink-faint group-hover:text-ink-soft',
-              ].join(' ')}
-              aria-hidden="true"
-            />
-            {!collapsed && 'Visão Geral'}
-          </Link>
-
-          {/* Ações — sempre visíveis no modo expandido */}
-          {!collapsed && (
-            <div className="flex items-center gap-0.5 pr-1.5 flex-shrink-0">
-              <Link
-                href="/inicio"
-                title="Voltar ao app"
-                className="p-1 rounded-[7px] text-ink-faint hover:text-ink-soft hover:bg-hairline/80 transition-colors"
-              >
-                <House size={13} strokeWidth={1.5} />
-              </Link>
-              <button
-                onClick={handleLogout}
-                title="Sair"
-                className="p-1 rounded-[7px] text-ink-faint hover:text-loss hover:bg-loss/8 transition-colors"
-              >
-                <LogOut size={13} strokeWidth={1.5} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Demais itens */}
         {ADMIN_NAV.map(({ href, label, icon: Icon }) => (
           <NavItem
             key={href}
