@@ -6,21 +6,22 @@ import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Swords, Trophy, Calendar, Users, Scale, CreditCard,
-  LayoutGrid, BookOpen, ChevronLeft, Menu, X, LogOut,
+  LayoutGrid, BookOpen, ChevronLeft, Menu, X, LogOut, LayoutDashboard,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 // ── Navigation ────────────────────────────────────────────────
 
 const ADMIN_NAV = [
-  { href: '/admin/jogos',         label: 'Jogos',           icon: Swords     },
-  { href: '/admin/resultados',    label: 'Resultados',      icon: Trophy     },
-  { href: '/admin/fases',         label: 'Fases',           icon: Calendar   },
-  { href: '/admin/participantes', label: 'Participantes',   icon: Users      },
-  { href: '/admin/desempate',     label: 'Desempate',       icon: Scale      },
-  { href: '/admin/pagamento',     label: 'Pagamento',       icon: CreditCard },
-  { href: '/admin/palpites',      label: 'Palpites Gerais', icon: LayoutGrid },
-  { href: '/admin/regras',        label: 'Regras',          icon: BookOpen   },
+  { href: '/admin/visao-geral',   label: 'Visão Geral',     icon: LayoutDashboard },
+  { href: '/admin/jogos',         label: 'Jogos',           icon: Swords          },
+  { href: '/admin/resultados',    label: 'Resultados',      icon: Trophy          },
+  { href: '/admin/fases',         label: 'Fases',           icon: Calendar        },
+  { href: '/admin/participantes', label: 'Participantes',   icon: Users           },
+  { href: '/admin/desempate',     label: 'Desempate',       icon: Scale           },
+  { href: '/admin/pagamento',     label: 'Pagamento',       icon: CreditCard      },
+  { href: '/admin/palpites',      label: 'Palpites Gerais', icon: LayoutGrid      },
+  { href: '/admin/regras',        label: 'Regras',          icon: BookOpen        },
 ] as const
 
 const PHASE_LABELS: Record<string, string> = {
@@ -110,23 +111,26 @@ export function AdminSidebar({ currentPhase }: Props) {
   return (
     <>
       {/* ── Mobile fixed header ───────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-40 h-14 bg-card/95 backdrop-blur-sm border-b border-hairline flex items-center px-4 lg:hidden">
-        {/* Hamburger */}
+      <header className="fixed top-0 inset-x-0 z-40 h-14 bg-card/95 backdrop-blur-sm border-b border-hairline flex items-center justify-between px-4 lg:hidden">
+        {/* Logo — left aligned */}
+        <div className="flex flex-col">
+          <span className="font-display text-base font-semibold text-ink leading-none">
+            Ousa<span className="text-brand">Bolão</span>
+          </span>
+          <span className="text-[10px] font-medium text-ink-faint leading-none mt-[3px] tracking-wide uppercase">
+            Modo Admin
+          </span>
+        </div>
+
+        {/* Hamburger — right aligned */}
         <button
           onClick={() => setDrawerOpen(true)}
           aria-label="Abrir menu"
           aria-expanded={drawerOpen}
-          className="p-2 -ml-1.5 rounded-[10px] text-ink-soft hover:bg-hairline hover:text-ink transition-colors flex-shrink-0 relative z-10"
+          className="p-2 -mr-1.5 rounded-[10px] text-ink-soft hover:bg-hairline hover:text-ink transition-colors flex-shrink-0"
         >
           <Menu size={20} strokeWidth={1.5} />
         </button>
-
-        {/* Logo — truly centered regardless of button width */}
-        <div className="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
-          <span className="font-display text-base font-semibold text-ink leading-none">
-            Ousa<span className="text-brand">Bolão</span>
-          </span>
-        </div>
       </header>
 
       {/* ── Mobile drawer + backdrop ──────────────────────── */}
@@ -145,20 +149,27 @@ export function AdminSidebar({ currentPhase }: Props) {
                 onClick={closeDrawer}
               />
 
-              {/* Drawer sheet */}
+              {/* Drawer sheet — slides from right */}
               <motion.aside
                 key="drawer"
-                initial={{ x: '-100%' }}
+                initial={{ x: '100%' }}
                 animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
+                exit={{ x: '100%' }}
                 transition={{ type: 'spring', stiffness: 340, damping: 34 }}
-                className="fixed inset-y-0 left-0 z-[60] w-72 flex flex-col bg-card border-r border-hairline"
-                style={{ boxShadow: '4px 0 32px rgba(22,21,26,.14)' }}
+                className="fixed inset-y-0 right-0 z-[60] w-72 flex flex-col bg-card border-l border-hairline"
+                style={{ boxShadow: '-4px 0 32px rgba(22,21,26,.14)' }}
                 aria-label="Menu do painel admin"
               >
                 {/* Brand header */}
                 <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-hairline flex-shrink-0">
-                  <div>
+                  <button
+                    onClick={closeDrawer}
+                    aria-label="Fechar menu"
+                    className="p-1.5 rounded-[8px] text-ink-faint hover:bg-hairline hover:text-ink transition-colors flex-shrink-0"
+                  >
+                    <X size={16} strokeWidth={1.5} />
+                  </button>
+                  <div className="text-right">
                     <p className="font-display text-base font-semibold text-ink leading-tight">
                       Ousa<span className="text-brand">Bolão</span>
                       <span className="text-ink-faint font-sans text-xs font-normal ml-2">Admin</span>
@@ -169,13 +180,6 @@ export function AdminSidebar({ currentPhase }: Props) {
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={closeDrawer}
-                    aria-label="Fechar menu"
-                    className="p-1.5 rounded-[8px] text-ink-faint hover:bg-hairline hover:text-ink transition-colors flex-shrink-0"
-                  >
-                    <X size={16} strokeWidth={1.5} />
-                  </button>
                 </div>
 
                 {/* Nav */}

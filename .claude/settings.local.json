@@ -3,7 +3,8 @@
     "allow": [
       "PowerShell($content = Get-Content -Path \"c:\\\\Users\\\\leona\\\\ousabolao\\\\types\\\\database.ts\" -Raw -Encoding UTF8; $profilesStart = $content.IndexOf\\('profiles:'\\); if \\($profilesStart -gt 0\\) { $excerpt = $content.Substring\\($profilesStart, [Math]::Min\\(1500, $content.Length - $profilesStart\\)\\); $excerpt })",
       "PowerShell($content = Get-Content -Path \"c:\\\\Users\\\\leona\\\\ousabolao\\\\types\\\\database.ts\" -Raw -Encoding UTF8; $rolesStart = $content.IndexOf\\('user_roles:'\\); if \\($rolesStart -gt 0\\) { $excerpt = $content.Substring\\($rolesStart, [Math]::Min\\(1500, $content.Length - $rolesStart\\)\\); $excerpt })",
-      "PowerShell($content = Get-Content -Path \"c:\\\\Users\\\\leona\\\\ousabolao\\\\types\\\\database.ts\" -Raw -Encoding UTF8; $appRoleStart = $content.IndexOf\\('app_role:'\\); if \\($appRoleStart -gt 0\\) { $excerpt = $content.Substring\\($appRoleStart, [Math]::Min\\(500, $content.Length - $appRoleStart\\)\\); $excerpt })"
+      "PowerShell($content = Get-Content -Path \"c:\\\\Users\\\\leona\\\\ousabolao\\\\types\\\\database.ts\" -Raw -Encoding UTF8; $appRoleStart = $content.IndexOf\\('app_role:'\\); if \\($appRoleStart -gt 0\\) { $excerpt = $content.Substring\\($appRoleStart, [Math]::Min\\(500, $content.Length - $appRoleStart\\)\\); $excerpt })",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\leona\\\\ousabolao\\\\app\\\\admin\" -Recurse -Force | Where-Object { $_.Extension -in '.tsx', '.ts' } | Select-Object FullName | Sort-Object FullName)"
     ]
   }
 }
