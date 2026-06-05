@@ -1,5 +1,4 @@
 ﻿import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -8,32 +7,38 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/inicio'
 
   if (code) {
-    const cookieStore = await cookies()
+    // Resposta intermediária para capturar as cookies de sessão
+    const supabaseResponse = NextResponse.next({ request })
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() {
-            return cookieStore.getAll()
+            return request.cookies.getAll()
           },
           setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              )
-            } catch {}
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            )
           },
         },
       }
     )
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      // Copia as cookies de sessão para o redirect
+      const redirectResponse = NextResponse.redirect(`${origin}${next}`)
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
+      })
+      return redirectResponse
     }
   }
 
-  // Link invalido ou expirado
+  // Link inválido ou expirado
   return NextResponse.redirect(`${origin}/esqueceu-senha?erro=link-invalido`)
 }
