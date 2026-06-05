@@ -40,8 +40,8 @@ export type PalpitesPdfData = {
 
 const MARGIN_H       = 36
 const USABLE_W       = 1190.55 - MARGIN_H * 2  // 1118.55 pt
-const MATCH_COL_W    = 96                        // fixed left column: flags + meta (no abbreviations)
-const AVAIL_PLAYER_W = USABLE_W - MATCH_COL_W   // 1022.55 pt for player columns
+const MATCH_COL_W    = 110                       // fixed left column: flags + abbrs + meta
+const AVAIL_PLAYER_W = USABLE_W - MATCH_COL_W   // 1008.55 pt for player columns
 const MIN_PLAYER_COL = 40                        // minimum readable column width
 const MAX_CHUNK      = Math.floor(AVAIL_PLAYER_W / MIN_PLAYER_COL)  // ≈ 25
 
@@ -76,7 +76,7 @@ const s = StyleSheet.create({
   page: {
     backgroundColor: PAPER,
     paddingHorizontal: MARGIN_H,
-    paddingVertical: 26,
+    paddingVertical: 20,
     fontSize: 8,
     fontFamily: 'Helvetica',
   },
@@ -117,16 +117,17 @@ const s = StyleSheet.create({
   tableRowDone:   { borderLeftWidth: 2, borderLeftColor: BRAND },
 
   // Cells — common
-  cell: { paddingHorizontal: 5, paddingVertical: 5 },
+  cell: { paddingHorizontal: 5, paddingVertical: 4 },
 
   // Match column (left) — header
   hdrMatchLabel: { fontSize: 6, color: CARD, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.4 },
 
   // Match column (left) — body
   matchTeamRow:  { flexDirection: 'row', alignItems: 'center' },
-  matchFlag:     { width: 14, height: 10, marginRight: 3 },
-  matchVs:       { fontSize: 7, color: INK_FAINT, marginHorizontal: 3 },
-  matchMeta:     { fontSize: 5.5, color: INK_FAINT, marginTop: 3 },
+  matchFlag:     { width: 12, height: 8.5, marginRight: 2 },
+  matchAbbr:     { fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: INK },
+  matchVs:       { fontSize: 6.5, color: INK_FAINT, marginHorizontal: 3 },
+  matchMeta:     { fontSize: 5.5, color: INK_FAINT, marginTop: 2 },
   matchScore:    { fontSize: 7, fontFamily: 'Helvetica-Bold', color: BRAND, marginTop: 2 },
 
   // Player column — header
@@ -247,7 +248,7 @@ function ChunkPage({ data, chunkRows, pageNum, totalPages, colW }: ChunkPageProp
           return (
             <View key={matchIdx} style={rowStyle} wrap={false}>
 
-              {/* Match info cell — flags only, no abbreviations */}
+              {/* Match info cell — flags + abbreviations, compact (no flex stretch) */}
               <View style={[s.cell, { width: MATCH_COL_W }]}>
                 <View style={s.matchTeamRow}>
                   {match.home_emblem
@@ -255,11 +256,13 @@ function ChunkPage({ data, chunkRows, pageNum, totalPages, colW }: ChunkPageProp
                     ? <Image src={match.home_emblem} style={s.matchFlag} />
                     : <View style={[s.matchFlag, { backgroundColor: HAIRLINE }]} />
                   }
+                  <Text style={s.matchAbbr}>{match.home_abbr}</Text>
                   <Text style={s.matchVs}>×</Text>
+                  <Text style={s.matchAbbr}>{match.away_abbr}</Text>
                   {match.away_emblem
                     // eslint-disable-next-line jsx-a11y/alt-text
-                    ? <Image src={match.away_emblem} style={[s.matchFlag, { marginRight: 0, marginLeft: 0 }]} />
-                    : <View style={[s.matchFlag, { backgroundColor: HAIRLINE, marginRight: 0, marginLeft: 0 }]} />
+                    ? <Image src={match.away_emblem} style={[s.matchFlag, { marginRight: 0, marginLeft: 2 }]} />
+                    : <View style={[s.matchFlag, { backgroundColor: HAIRLINE, marginRight: 0, marginLeft: 2 }]} />
                   }
                 </View>
                 <Text style={s.matchMeta}>{metaLine}</Text>
