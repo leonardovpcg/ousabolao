@@ -188,9 +188,9 @@ export function AdminSidebar({ currentPhase, collapsed, onToggle }: Props) {
             {!collapsed && 'Visão Geral'}
           </Link>
 
-          {/* Ações — aparecem no hover, só no modo expandido */}
+          {/* Ações — sempre visíveis no modo expandido */}
           {!collapsed && (
-            <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <div className="flex items-center gap-0.5 pr-1.5 flex-shrink-0">
               <Link
                 href="/inicio"
                 title="Voltar ao app"
