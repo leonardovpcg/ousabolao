@@ -3,11 +3,25 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { House, LogOut } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import {
+  House, LogOut,
+  Swords, Trophy, Calendar, Users, Scale, CreditCard, LayoutGrid, BookOpen,
+} from 'lucide-react'
+import { useRouter, usePathname } from 'next/navigation'
 import logo from '@/app/logo.png'
 import { createClient } from '@/lib/supabase/client'
 import { AdminSidebar } from './AdminSidebar'
+
+const MOBILE_NAV = [
+  { href: '/admin/jogos',         label: 'Jogos',           icon: Swords      },
+  { href: '/admin/resultados',    label: 'Resultados',      icon: Trophy      },
+  { href: '/admin/fases',         label: 'Fases',           icon: Calendar    },
+  { href: '/admin/participantes', label: 'Participantes',   icon: Users       },
+  { href: '/admin/desempate',     label: 'Desempate',       icon: Scale       },
+  { href: '/admin/pagamento',     label: 'Pagamento',       icon: CreditCard  },
+  { href: '/admin/palpites',      label: 'Palpites Gerais', icon: LayoutGrid  },
+  { href: '/admin/regras',        label: 'Regras',          icon: BookOpen    },
+] as const
 
 type Props = {
   children: React.ReactNode
@@ -17,6 +31,8 @@ type Props = {
 export function AdminShellLayout({ children, currentPhase }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
+  const isVisaoGeral = pathname === '/admin/visao-geral' || pathname === '/admin'
 
   useEffect(() => {
     try {
@@ -92,6 +108,37 @@ export function AdminShellLayout({ children, currentPhase }: Props) {
                 </div>
               </div>
               <div className="h-px bg-gradient-to-r from-brand/35 via-hairline to-transparent" />
+
+              {/* Navegação entre seções — todas exceto Visão Geral */}
+              {!isVisaoGeral && (
+                <div className="pt-3">
+                  <div className="flex items-center justify-between gap-1">
+                    {MOBILE_NAV.map(({ href, label, icon: Icon }) => {
+                      const active = pathname === href || pathname.startsWith(href + '/')
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          title={label}
+                          aria-label={label}
+                          className={[
+                            'flex flex-col items-center gap-1 flex-1 py-2 rounded-xl transition-colors',
+                            active
+                              ? 'bg-brand/8 text-brand'
+                              : 'text-ink-faint hover:bg-card-sunken hover:text-ink-soft',
+                          ].join(' ')}
+                        >
+                          <Icon size={16} strokeWidth={1.5} />
+                          {active && (
+                            <span className="w-1 h-1 rounded-full bg-brand" />
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                  <div className="h-px bg-hairline mt-3" />
+                </div>
+              )}
             </div>
 
             {/* Desktop: ações fixas no canto superior direito, permanentes entre seções */}
