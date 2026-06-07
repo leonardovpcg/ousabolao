@@ -13,6 +13,68 @@ async function requireAdmin() {
   return supabase
 }
 
+// ── Helper: calcula e grava betting_locks_at no banco ─────────────────
+//
+// Para whole_phase: grava em tournament_phases.betting_locks_at
+// Para per_round:   grava em phase_rounds.betting_locks_at para cada rodada
+//
+// Retorna null se não houver jogos cadastrados (nenhum prazo gravado).
+
+async function saveDeadlines(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  phaseId: string,
+  phaseKey: string,
+  betMode: string,
+  lockMinutes: number,
+): Promise<void> {
+  const db = supabase
+
+  if (betMode === 'per_round' && phaseKey === 'group_stage') {
+    // Um prazo por rodada
+    for (const round of ['1', '2', '3']) {
+      const { data: matches } = await supabase
+        .from('matches')
+        .select('match_date')
+        .eq('phase', phaseKey)
+        .eq('round', round)
+        .eq('category', 'national')
+        .order('match_date')
+        .limit(1)
+
+      const first = matches?.[0]
+      const locksAt = first
+        ? new Date(new Date(first.match_date).getTime() - lockMinutes * 60_000).toISOString()
+        : null
+
+      await db
+        .from('phase_rounds')
+        .update({ betting_locks_at: locksAt })
+        .eq('phase', phaseKey)
+        .eq('round', round)
+    }
+  } else {
+    // Prazo único para a fase inteira
+    const { data: matches } = await supabase
+      .from('matches')
+      .select('match_date')
+      .eq('phase', phaseKey)
+      .eq('category', 'national')
+      .order('match_date')
+      .limit(1)
+
+    const first = matches?.[0]
+    const locksAt = first
+      ? new Date(new Date(first.match_date).getTime() - lockMinutes * 60_000).toISOString()
+      : null
+
+    await supabase
+      .from('tournament_phases')
+      .update({ betting_locks_at: locksAt })
+      .eq('id', phaseId)
+  }
+}
+
 // ── Editar antecedência (lock_minutes_before) ─────────────────
 
 export async function updateLockMinutes(
@@ -115,6 +177,9 @@ export async function setCurrentPhase(
 }
 
 // ── Abrir palpites: fase inteira (upcoming → open) ────────────
+//
+// Além de mudar o status, calcula e grava betting_locks_at no banco
+// para que o trigger enforce_bet_deadline possa enforçar o prazo.
 
 export async function openPhase(phaseId: string): Promise<ActionState> {
   const parsed = z.string().uuid('ID inválido.').safeParse(phaseId)
@@ -123,6 +188,21 @@ export async function openPhase(phaseId: string): Promise<ActionState> {
   const supabase = await requireAdmin().catch(() => null)
   if (!supabase) return { error: 'Acesso negado.' }
 
+  const { data: phase } = await supabase
+    .from('tournament_phases')
+    .select('*')
+    .eq('id', parsed.data)
+    .single()
+
+  if (!phase) return { error: 'Fase não encontrada.' }
+  if (phase.status !== 'upcoming') return { error: 'Esta fase já está aberta ou encerrada.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lockMinutes: number = (phase as any).lock_minutes_before ?? 30
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const betMode: string = (phase as any).bet_mode ?? 'whole_phase'
+
+  // Muda status para open
   const { error } = await supabase
     .from('tournament_phases')
     .update({ status: 'open' })
@@ -130,11 +210,18 @@ export async function openPhase(phaseId: string): Promise<ActionState> {
     .eq('status', 'upcoming')
 
   if (error) return { error: `Erro ao abrir palpites: ${error.message}` }
+
+  // Calcula e grava os prazos no banco
+  await saveDeadlines(supabase, parsed.data, phase.phase, betMode, lockMinutes)
+
   revalidatePath('/admin/fases')
   return { ok: true }
 }
 
 // ── Abrir palpites: rodada individual (per_round mode) ────────
+//
+// Garante que a fase esteja aberta, calcula prazos de todas as
+// rodadas e marca esta rodada como aberta em phase_rounds.
 
 export async function openRound(round: string): Promise<ActionState> {
   const parsed = z.enum(['1', '2', '3']).safeParse(round)
@@ -143,7 +230,33 @@ export async function openRound(round: string): Promise<ActionState> {
   const supabase = await requireAdmin().catch(() => null)
   if (!supabase) return { error: 'Acesso negado.' }
 
-  // phase_rounds not in generated types yet — safe after migration 06
+  // Busca dados da fase de grupos
+  const { data: phase } = await supabase
+    .from('tournament_phases')
+    .select('*')
+    .eq('phase', 'group_stage')
+    .single()
+
+  if (!phase) return { error: 'Fase de grupos não encontrada.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lockMinutes: number = (phase as any).lock_minutes_before ?? 30
+
+  // Se a fase ainda não está aberta, abre agora
+  if (phase.status === 'upcoming') {
+    const { error } = await supabase
+      .from('tournament_phases')
+      .update({ status: 'open' })
+      .eq('phase', 'group_stage')
+      .eq('status', 'upcoming')
+
+    if (error) return { error: `Erro ao abrir fase: ${error.message}` }
+  }
+
+  // Calcula e grava os prazos das 3 rodadas de uma só vez
+  await saveDeadlines(supabase, phase.id, 'group_stage', 'per_round', lockMinutes)
+
+  // Marca esta rodada como aberta
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
   const { error } = await db
@@ -154,6 +267,40 @@ export async function openRound(round: string): Promise<ActionState> {
     .eq('status', 'upcoming')
 
   if (error) return { error: `Erro ao abrir rodada: ${error.message}` }
+
+  revalidatePath('/admin/fases')
+  return { ok: true }
+}
+
+// ── Recalcular prazos (fase já aberta) ───────────────────────
+//
+// Útil quando: (a) a fase já estava 'open' antes desta correção
+// existir (ex.: group_stage seedado como open na migration 01),
+// ou (b) o admin alterou o horário de algum jogo depois de abrir.
+
+export async function recalculateDeadlines(phaseId: string): Promise<ActionState> {
+  const parsed = z.string().uuid('ID inválido.').safeParse(phaseId)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'ID inválido.' }
+
+  const supabase = await requireAdmin().catch(() => null)
+  if (!supabase) return { error: 'Acesso negado.' }
+
+  const { data: phase } = await supabase
+    .from('tournament_phases')
+    .select('*')
+    .eq('id', parsed.data)
+    .single()
+
+  if (!phase) return { error: 'Fase não encontrada.' }
+  if (phase.status !== 'open') return { error: 'Só é possível recalcular prazos de fases abertas.' }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lockMinutes: number = (phase as any).lock_minutes_before ?? 30
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const betMode: string = (phase as any).bet_mode ?? 'whole_phase'
+
+  await saveDeadlines(supabase, parsed.data, phase.phase, betMode, lockMinutes)
+
   revalidatePath('/admin/fases')
   return { ok: true }
 }

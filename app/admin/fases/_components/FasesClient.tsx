@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2, Clock, Lock, Circle, Repeat2,
-  Loader2, AlertCircle, ChevronDown, Unlock,
+  Loader2, AlertCircle, ChevronDown, Unlock, RefreshCw,
 } from 'lucide-react'
 import {
   updateLockMinutes,
@@ -13,6 +13,7 @@ import {
   setCurrentPhase,
   openPhase,
   openRound,
+  recalculateDeadlines,
 } from '../actions'
 import { formatDate, formatTime } from '@/lib/utils/datetime'
 import type { PhaseRow, PhaseRoundRow, DeadlineEntry } from '../page'
@@ -99,6 +100,8 @@ type PhaseState = {
   lockError: string | null
   toggling: boolean
   opening: boolean
+  recalculating: boolean
+  recalcOk: boolean
   error: string | null
 }
 
@@ -159,6 +162,8 @@ export function FasesClient({
       lockError: null,
       toggling: false,
       opening: false,
+      recalculating: false,
+      recalcOk: false,
       error: null,
       ...phaseStates[p.id],
     }
@@ -208,6 +213,20 @@ export function FasesClient({
       patchPhase(phaseId, { error: result.error })
     } else {
       router.refresh()
+    }
+  }, [router])
+
+  const handleRecalculate = useCallback(async (phaseId: string) => {
+    patchPhase(phaseId, { recalculating: true, recalcOk: false, error: null })
+    const result = await recalculateDeadlines(phaseId)
+    patchPhase(phaseId, { recalculating: false })
+    if (result && 'error' in result) {
+      patchPhase(phaseId, { error: result.error })
+    } else {
+      patchPhase(phaseId, { recalcOk: true })
+      router.refresh()
+      // Limpa o ✓ depois de 3s
+      setTimeout(() => patchPhase(phaseId, { recalcOk: false }), 3000)
     }
   }, [router])
 
@@ -531,6 +550,28 @@ export function FasesClient({
                             )}
                             Abrir palpites
                           </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Recalculate deadlines — shown when phase is open */}
+                    {p.status === 'open' && (
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <button
+                          onClick={() => handleRecalculate(p.id)}
+                          disabled={ps.recalculating}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card-sunken text-xs font-medium text-ink-soft hover:bg-hairline hover:text-ink active:scale-[0.98] disabled:opacity-40 transition-all"
+                        >
+                          {ps.recalculating
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <RefreshCw size={11} strokeWidth={1.75} />}
+                          Recalcular prazos
+                        </button>
+                        {ps.recalcOk && (
+                          <span className="flex items-center gap-1 text-[11px] text-win font-medium">
+                            <CheckCircle2 size={11} strokeWidth={2} />
+                            Prazos gravados
+                          </span>
                         )}
                       </div>
                     )}

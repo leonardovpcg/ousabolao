@@ -54,10 +54,11 @@ export async function upsertBet(
       return { error: 'Seu pagamento ainda não foi confirmado. Fale com o admin para liberar seu acesso.' }
     }
     if (
+      msg.includes('prazo') ||
+      msg.includes('encerrou') ||
+      msg.includes('não estão abertos') ||
       msg.includes('deadline') ||
-      msg.includes('lock') ||
-      msg.includes('not open') ||
-      msg.includes('betting_open')
+      msg.includes('lock')
     ) {
       return { error: 'O prazo para palpitar neste jogo já encerrou.' }
     }
