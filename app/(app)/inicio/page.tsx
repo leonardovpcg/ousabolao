@@ -4,6 +4,7 @@ import { Crosshair, Hash, Star, Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { APP_TZ, formatDateTime } from '@/lib/utils/datetime'
 import { DeadlineTimer, type DeadlineInfo } from './_components/DeadlineTimer'
+import { BetProgressClient, type BetWindow } from './_components/BetProgressClient'
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -42,11 +43,6 @@ type RawPhase = {
 
 type MatchRow = { id: string; match_date: string; phase: string; round: string | null }
 
-type ActiveWindow = {
-  matchIds: string[]
-  totalMatches: number
-  label: string
-}
 
 // ── Deadline computation ───────────────────────────────────────────
 
@@ -107,15 +103,15 @@ function computeNextDeadline(
   return nearest?.info ?? null
 }
 
-// ── Active window for bet progress ────────────────────────────────
-// Returns the same nearest-deadline window, but with match IDs instead of label.
+// ── All open windows for bet progress ────────────────────────────
+// Returns every window with a future deadline, sorted nearest first.
 
-function computeActiveWindow(
+function computeAllWindows(
   openPhases: RawPhase[],
   matches: MatchRow[],
-): ActiveWindow | null {
+): BetWindow[] {
   const now = Date.now()
-  let nearest: { ms: number; window: ActiveWindow } | null = null
+  const entries: { ms: number; win: BetWindow }[] = []
 
   for (const phase of openPhases) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,14 +133,15 @@ function computeActiveWindow(
         )
         const deadlineMs = earliest - lockMinutes * 60 * 1000
         if (deadlineMs <= now) continue
-        const roundLabel = ROUND_LABELS[round] ?? `Rodada ${round}`
-        const phaseLabel = phase.label || PHASE_LABELS[phase.phase] || phase.phase
-        const window: ActiveWindow = {
-          matchIds: roundMatches.map((m) => m.id),
-          totalMatches: roundMatches.length,
-          label: `${roundLabel} · ${phaseLabel}`,
-        }
-        if (!nearest || deadlineMs < nearest.ms) nearest = { ms: deadlineMs, window }
+        entries.push({
+          ms: deadlineMs,
+          win: {
+            matchIds: roundMatches.map((m) => m.id),
+            totalMatches: roundMatches.length,
+            label: `${ROUND_LABELS[round] ?? `Rodada ${round}`} · ${phase.label || PHASE_LABELS[phase.phase]}`,
+            deadlineUtc: new Date(deadlineMs).toISOString(),
+          },
+        })
       }
     } else {
       if (phaseMatches.length === 0) continue
@@ -153,16 +150,19 @@ function computeActiveWindow(
       )
       const deadlineMs = earliest - lockMinutes * 60 * 1000
       if (deadlineMs <= now) continue
-      const window: ActiveWindow = {
-        matchIds: phaseMatches.map((m) => m.id),
-        totalMatches: phaseMatches.length,
-        label: phase.label || PHASE_LABELS[phase.phase] || phase.phase,
-      }
-      if (!nearest || deadlineMs < nearest.ms) nearest = { ms: deadlineMs, window }
+      entries.push({
+        ms: deadlineMs,
+        win: {
+          matchIds: phaseMatches.map((m) => m.id),
+          totalMatches: phaseMatches.length,
+          label: phase.label || PHASE_LABELS[phase.phase] || phase.phase,
+          deadlineUtc: new Date(deadlineMs).toISOString(),
+        },
+      })
     }
   }
 
-  return nearest?.window ?? null
+  return entries.sort((a, b) => a.ms - b.ms).map((e) => e.win)
 }
 
 // ── Greeting ───────────────────────────────────────────────────────
@@ -212,68 +212,6 @@ function MetricCard({
   )
 }
 
-// ── BetProgressCard ────────────────────────────────────────────────
-
-function BetProgressCard({
-  done,
-  total,
-  label,
-}: {
-  done: number
-  total: number
-  label: string
-}) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  const complete = done >= total
-  const missing = total - done
-
-  return (
-    <div className="rounded-card bg-card border border-hairline card-shadow-sm p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold text-ink-faint uppercase tracking-wider">
-          Palpites da janela
-        </span>
-        <span className="text-[10px] font-medium text-ink-soft">{label}</span>
-      </div>
-
-      {/* Counter */}
-      <div className="flex items-baseline gap-1 mb-3">
-        <span
-          className={`font-display text-[2rem] font-bold nums leading-none ${
-            complete ? 'text-win' : 'text-ink'
-          }`}
-        >
-          {done}
-        </span>
-        <span className="font-display text-base font-semibold text-ink-faint nums">
-          &nbsp;/ {total}
-        </span>
-        <span className="text-xs text-ink-soft ml-1">jogos</span>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1.5 bg-card-sunken rounded-pill overflow-hidden">
-        <div
-          className={`h-full rounded-pill transition-all duration-500 ${
-            complete ? 'bg-win' : 'bg-brand'
-          }`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-
-      {/* Bottom label */}
-      <p className="text-xs text-ink-soft mt-2 leading-tight">
-        {complete ? (
-          <span className="text-win font-medium">Todos os palpites enviados ✓</span>
-        ) : missing === 1 ? (
-          <>Falta <span className="font-semibold text-ink">1 jogo</span> sem palpite</>
-        ) : (
-          <>Faltam <span className="font-semibold text-ink">{missing} jogos</span> sem palpite</>
-        )}
-      </p>
-    </div>
-  )
-}
 
 // ── Page ───────────────────────────────────────────────────────────
 
@@ -325,19 +263,21 @@ export default async function InicioPage() {
   const allMatches = (matchRows ?? []) as MatchRow[]
 
   const deadlineInfo = computeNextDeadline(openPhases, allMatches)
-  const activeWindow = computeActiveWindow(openPhases, allMatches)
+  const allWindows = computeAllWindows(openPhases, allMatches)
 
-  // Count user's bets in the active window
-  const windowBetCount =
-    activeWindow && activeWindow.matchIds.length > 0
-      ? ((
-          await supabase
-            .from('bets')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .in('match_id', activeWindow.matchIds)
-        ).count ?? 0)
-      : 0
+  // Fetch user's bets for all open windows in one query
+  const allWindowMatchIds = [...new Set(allWindows.flatMap((w) => w.matchIds))]
+  const { data: windowBetRows } =
+    allWindowMatchIds.length > 0
+      ? await supabase
+          .from('bets')
+          .select('match_id')
+          .eq('user_id', user.id)
+          .in('match_id', allWindowMatchIds)
+      : { data: [] as { match_id: string }[] }
+  const betMatchIds = (windowBetRows ?? [])
+    .map((b) => b.match_id)
+    .filter((id): id is string => !!id)
 
   // Prize
   const quotaValue = poolSettings?.quota_value ?? 100
@@ -393,14 +333,10 @@ export default async function InicioPage() {
       {/* Timer */}
       <DeadlineTimer deadlineInfo={deadlineInfo} />
 
-      {/* Bet progress — only when there is an active window */}
-      {activeWindow && (
+      {/* Bet progress — only when there are open windows */}
+      {allWindows.length > 0 && (
         <div className="mt-4">
-          <BetProgressCard
-            done={windowBetCount}
-            total={activeWindow.totalMatches}
-            label={activeWindow.label}
-          />
+          <BetProgressClient windows={allWindows} betMatchIds={betMatchIds} />
         </div>
       )}
 
