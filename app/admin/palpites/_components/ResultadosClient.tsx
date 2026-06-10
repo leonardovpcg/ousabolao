@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { FileText, Loader2, AlertCircle, Trophy } from 'lucide-react'
-import { formatDate, APP_TZ } from '@/lib/utils/datetime'
+import { Download, FileText, Loader2, AlertCircle, Trophy } from 'lucide-react'
+import { APP_TZ } from '@/lib/utils/datetime'
 import { PHASES, PHASE_LABELS } from '@/app/admin/jogos/constants'
 import type { BetEntry, MatchForBets, ProfileRow, NationalTeam } from '../page'
 
@@ -13,6 +13,14 @@ function teamAbbr(team: NationalTeam | null): string {
   if (!team) return '?'
   const src = team.country ?? team.name
   return src.slice(0, 3).toUpperCase()
+}
+
+function triggerDownload(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
 }
 
 function matchTimeLabel(iso: string): string {
@@ -232,6 +240,7 @@ export function ResultadosClient({ bets, matches, profiles }: Props) {
     return PHASES.find(p => set.has(p)) ?? 'group_stage'
   })
   const [selectedRound, setSelectedRound] = useState<string>('')
+  const [csvLoading, setCsvLoading] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
@@ -289,6 +298,34 @@ export function ResultadosClient({ bets, matches, profiles }: Props) {
     if (selectedRound) label += ` — ${selectedRound}ª Rodada`
     return label
   }, [selectedPhase, selectedRound])
+
+  const handleExportCsv = useCallback(() => {
+    setCsvLoading(true)
+    setExportError(null)
+    try {
+      // Header: Pos, Participante, [match columns], Total
+      const matchHeaders = finishedMatches.map(m =>
+        `"${teamAbbr(m.home_team)} × ${teamAbbr(m.away_team)} (${m.home_score}–${m.away_score})"`
+      )
+      const header = ['Pos', 'Participante', ...matchHeaders, 'Total pts'].join(',')
+
+      const csvRows = playerRows.map((player, idx) => {
+        const cells = finishedMatches.map(m => {
+          const bet = player.bets.get(m.id)
+          if (!bet) return '""'
+          const pts = bet.points !== null ? ` (${bet.points}pts)` : ''
+          return `"${bet.home_prediction}×${bet.away_prediction}${pts}"`
+        })
+        return [`${idx + 1}`, `"${player.name}"`, ...cells, `${player.windowPoints}`].join(',')
+      })
+
+      const csv = '﻿' + [header, ...csvRows].join('\n')
+      const filename = `resultados-${selectedPhase}${selectedRound ? `-r${selectedRound}` : ''}.csv`
+      triggerDownload(csv, filename, 'text/csv;charset=utf-8')
+    } finally {
+      setCsvLoading(false)
+    }
+  }, [finishedMatches, playerRows, selectedPhase, selectedRound])
 
   const handleExportPdf = useCallback(async () => {
     setPdfLoading(true)
@@ -352,17 +389,30 @@ export function ResultadosClient({ bets, matches, profiles }: Props) {
           )}
         </div>
 
-        <button
-          onClick={handleExportPdf}
-          disabled={pdfLoading || finishedMatches.length === 0}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-btn border border-hairline bg-card text-ink text-xs font-semibold hover:bg-hairline active:scale-[0.98] transition-all disabled:opacity-40 flex-shrink-0"
-        >
-          {pdfLoading
-            ? <Loader2 size={13} className="animate-spin" />
-            : <FileText size={13} strokeWidth={2} />
-          }
-          PDF
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleExportCsv}
+            disabled={csvLoading || finishedMatches.length === 0}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-btn border border-hairline bg-card text-ink text-xs font-semibold hover:bg-hairline active:scale-[0.98] transition-all disabled:opacity-40"
+          >
+            {csvLoading
+              ? <Loader2 size={13} className="animate-spin" />
+              : <Download size={13} strokeWidth={2} />
+            }
+            CSV
+          </button>
+          <button
+            onClick={handleExportPdf}
+            disabled={pdfLoading || finishedMatches.length === 0}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-btn border border-hairline bg-card text-ink text-xs font-semibold hover:bg-hairline active:scale-[0.98] transition-all disabled:opacity-40"
+          >
+            {pdfLoading
+              ? <Loader2 size={13} className="animate-spin" />
+              : <FileText size={13} strokeWidth={2} />
+            }
+            PDF
+          </button>
+        </div>
       </div>
 
       {/* Export error */}
