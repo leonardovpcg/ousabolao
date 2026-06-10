@@ -31,7 +31,7 @@ const ADMIN_SECTIONS = [
   { href: '/admin/participantes', label: 'Participantes',   icon: Users,       desc: 'Pagamentos e jogadores' },
   { href: '/admin/desempate',     label: 'Desempate',       icon: Scale,       desc: 'Perguntas especiais'    },
   { href: '/admin/pagamento',     label: 'Pagamento',       icon: CreditCard,  desc: 'Cota e chave PIX'       },
-  { href: '/admin/palpites',      label: 'Palpites Gerais', icon: LayoutGrid,  desc: 'Visão de todos'         },
+  { href: '/admin/palpites',      label: 'Relatórios',      icon: LayoutGrid,  desc: 'Palpites e resultados'  },
   { href: '/admin/regras',        label: 'Regras',          icon: BookOpen,    desc: 'Regulamento'            },
 ] as const
 
