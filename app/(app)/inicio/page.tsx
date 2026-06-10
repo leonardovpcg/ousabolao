@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
-import { Crosshair, Hash, Star, Trophy } from 'lucide-react'
+import { Crosshair, HelpCircle, Star, Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { APP_TZ, formatDateTime } from '@/lib/utils/datetime'
 import { DeadlineTimer, type DeadlineInfo } from './_components/DeadlineTimer'
@@ -226,7 +226,8 @@ export default async function InicioPage() {
     { data: profile },
     { data: rankingRow },
     { count: totalParticipants },
-    { count: betCount },
+    { count: tiebreakerTotal },
+    { count: tiebreakerDone },
     { data: poolSettings },
     { count: paidCount },
     { data: openPhaseRows },
@@ -238,7 +239,8 @@ export default async function InicioPage() {
       .eq('user_id', user.id)
       .maybeSingle(),
     supabase.from('ranking').select('*', { count: 'exact', head: true }),
-    supabase.from('bets').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('tiebreaker_questions').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('tiebreaker_responses').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
     supabase.from('pool_settings').select('quota_value, current_phase').single(),
     supabase
       .from('profiles')
@@ -389,10 +391,11 @@ export default async function InicioPage() {
             icon={<Star size={13} strokeWidth={1.5} />}
           />
           <MetricCard
-            label="Palpites"
-            value={String(betCount ?? 0)}
-            sub="enviados"
-            icon={<Hash size={13} strokeWidth={1.5} />}
+            label="Desempate"
+            value={`${tiebreakerDone ?? 0} / ${tiebreakerTotal ?? 0}`}
+            valueClass={(tiebreakerDone ?? 0) >= (tiebreakerTotal ?? 1) && (tiebreakerTotal ?? 0) > 0 ? 'text-win' : 'text-ink'}
+            sub="perguntas respondidas"
+            icon={<HelpCircle size={13} strokeWidth={1.5} />}
           />
           <MetricCard
             label="Exatos"
