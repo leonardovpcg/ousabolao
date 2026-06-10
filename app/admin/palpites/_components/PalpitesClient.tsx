@@ -382,16 +382,6 @@ export function PalpitesClient({ bets, matches, profiles }: Props) {
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-5">
-        <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-tight">
-          Palpites Gerais
-        </h1>
-        <p className="text-ink-soft text-sm mt-1">
-          Todos os palpites de todos os participantes
-        </p>
-      </div>
-
       {/* ── Filters + Export row ─────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
 

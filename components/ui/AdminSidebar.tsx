@@ -19,7 +19,7 @@ const ADMIN_NAV = [
   { href: '/admin/participantes', label: 'Participantes',   icon: Users           },
   { href: '/admin/desempate',     label: 'Desempate',       icon: Scale           },
   { href: '/admin/pagamento',     label: 'Pagamento',       icon: CreditCard      },
-  { href: '/admin/palpites',      label: 'Palpites Gerais', icon: LayoutGrid      },
+  { href: '/admin/palpites',      label: 'Relatórios',      icon: LayoutGrid      },
   { href: '/admin/regras',        label: 'Regras',          icon: BookOpen        },
 ] as const
 
