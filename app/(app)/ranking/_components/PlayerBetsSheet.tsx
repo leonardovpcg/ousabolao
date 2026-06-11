@@ -109,6 +109,7 @@ function BetRow({ bet }: { bet: BetDetail }) {
         <div className="flex-1" />
 
         {/* Prediction */}
+        <span className="text-[11px] text-ink-faint flex-shrink-0">Palpite:</span>
         <span
           className={[
             'font-display text-sm font-bold nums flex-shrink-0',
@@ -170,6 +171,9 @@ export function PlayerBetsSheet({ entry, onClose }: Props) {
               </div>
               <p className="font-display text-lg font-bold text-ink leading-tight truncate">
                 {entry.name}
+              </p>
+              <p className="text-xs text-ink-faint mt-0.5">
+                {bets.length} {bets.length === 1 ? 'jogo apostado' : 'jogos apostados'}
               </p>
             </div>
             <div className="flex-shrink-0 text-right">
