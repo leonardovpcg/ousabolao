@@ -47,21 +47,7 @@ export function buildRankingEntries(
     return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
   })
 
-  // Players with identical points/exacts/results share the same position number.
-  // The next distinct group skips ahead by the size of the tied group.
-  for (let i = 0; i < entries.length; i++) {
-    if (i === 0) {
-      entries[i].position = 1
-    } else {
-      const prev = entries[i - 1]
-      const curr = entries[i]
-      const tied =
-        curr.total_points === prev.total_points &&
-        curr.exact_scores === prev.exact_scores &&
-        curr.correct_results === prev.correct_results
-      entries[i].position = tied ? prev.position : i + 1
-    }
-  }
+  entries.forEach((e, i) => { e.position = i + 1 })
 
   return entries
 }
