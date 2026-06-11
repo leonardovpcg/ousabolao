@@ -7,6 +7,7 @@ import { buildRankingEntries } from '../rankingUtils'
 import type { RankingEntry } from '../rankingUtils'
 import { Podium } from './Podium'
 import { RankList } from './RankList'
+import { PlayerBetsSheet } from './PlayerBetsSheet'
 
 export type { RankingEntry }
 
@@ -17,6 +18,7 @@ type Props = {
 
 export function RankingClient({ initialEntries, currentUserId }: Props) {
   const [entries, setEntries] = useState<RankingEntry[]>(initialEntries)
+  const [selectedEntry, setSelectedEntry] = useState<RankingEntry | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -81,7 +83,7 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
         <p className="text-ink-soft text-sm mt-1">Copa do Mundo 2026</p>
       </div>
 
-      <Podium entries={top3} currentUserId={currentUserId} />
+      <Podium entries={top3} currentUserId={currentUserId} onSelect={setSelectedEntry} />
 
       {rest.length > 0 && (
         <RankList
@@ -89,8 +91,11 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
           currentUserId={currentUserId}
           picanhaUserIds={picanhaUserIds}
           showPicanha={showPicanha}
+          onSelect={setSelectedEntry}
         />
       )}
+
+      <PlayerBetsSheet entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
     </div>
   )
 }

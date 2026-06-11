@@ -10,16 +10,19 @@ type Props = {
   currentUserId: string | null
   picanhaUserIds: Set<string>
   showPicanha: boolean
+  onSelect: (entry: RankingEntry) => void
 }
 
 function RankRow({
   entry,
   isMe,
   isPicanha,
+  onSelect,
 }: {
   entry: RankingEntry
   isMe: boolean
   isPicanha: boolean
+  onSelect: (entry: RankingEntry) => void
 }) {
   return (
     <motion.li
@@ -30,10 +33,13 @@ function RankRow({
       exit={{ opacity: 0, y: -4 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
-      <div
+      <button
+        type="button"
+        onClick={() => onSelect(entry)}
         className={[
-          'relative flex items-center gap-3 rounded-card bg-card border px-4 py-3.5',
-          'transition-colors duration-200',
+          'relative w-full flex items-center gap-3 rounded-card bg-card border px-4 py-3.5',
+          'transition-all duration-150 text-left',
+          'hover:scale-[1.01] hover:card-shadow active:scale-[0.99]',
           isMe
             ? 'border-brand/40 card-shadow-sm'
             : isPicanha
@@ -98,12 +104,12 @@ function RankRow({
             {entry.exact_scores} exatos
           </p>
         </div>
-      </div>
+      </button>
     </motion.li>
   )
 }
 
-export function RankList({ entries, currentUserId, picanhaUserIds, showPicanha }: Props) {
+export function RankList({ entries, currentUserId, picanhaUserIds, showPicanha, onSelect }: Props) {
   const regularEntries = entries.filter((e) => !picanhaUserIds.has(e.user_id))
   const picanhaEntries = entries.filter((e) => picanhaUserIds.has(e.user_id))
 
@@ -123,6 +129,7 @@ export function RankList({ entries, currentUserId, picanhaUserIds, showPicanha }
                 entry={entry}
                 isMe={entry.user_id === currentUserId}
                 isPicanha={false}
+                onSelect={onSelect}
               />
             ))}
           </motion.ul>
@@ -165,6 +172,7 @@ export function RankList({ entries, currentUserId, picanhaUserIds, showPicanha }
                   entry={entry}
                   isMe={entry.user_id === currentUserId}
                   isPicanha={true}
+                  onSelect={onSelect}
                 />
               ))}
             </ul>

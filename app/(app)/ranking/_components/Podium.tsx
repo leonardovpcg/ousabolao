@@ -8,6 +8,7 @@ import type { RankingEntry } from './RankingClient'
 type Props = {
   entries: RankingEntry[]
   currentUserId: string | null
+  onSelect: (entry: RankingEntry) => void
 }
 
 const MEDAL = {
@@ -62,10 +63,12 @@ function PodiumSlot({
   entry,
   rank,
   isMe,
+  onSelect,
 }: {
   entry: RankingEntry
   rank: 1 | 2 | 3
   isMe: boolean
+  onSelect: (entry: RankingEntry) => void
 }) {
   const m = MEDAL[rank]
 
@@ -76,8 +79,10 @@ function PodiumSlot({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 240, damping: 22, delay: m.delay }}
     >
-      <div
-        className="w-full flex flex-col items-center rounded-card bg-card border overflow-hidden"
+      <button
+        type="button"
+        onClick={() => onSelect(entry)}
+        className="w-full flex flex-col items-center rounded-card bg-card border overflow-hidden transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98]"
         style={{
           boxShadow: isMe
             ? `${m.cardShadow}, 0 0 0 2px rgba(200,136,30,0.38)`
@@ -139,12 +144,12 @@ function PodiumSlot({
             borderTop: m.stepBorder,
           }}
         />
-      </div>
+      </button>
     </motion.div>
   )
 }
 
-export function Podium({ entries, currentUserId }: Props) {
+export function Podium({ entries, currentUserId, onSelect }: Props) {
   const [first, second, third] = entries
   if (!first) return null
 
@@ -152,13 +157,13 @@ export function Podium({ entries, currentUserId }: Props) {
     <div className="pt-4 pb-3">
       <div className="flex items-end justify-center gap-2.5">
         {second ? (
-          <PodiumSlot entry={second} rank={2} isMe={second.user_id === currentUserId} />
+          <PodiumSlot entry={second} rank={2} isMe={second.user_id === currentUserId} onSelect={onSelect} />
         ) : (
           <div className="flex-1" />
         )}
-        <PodiumSlot entry={first} rank={1} isMe={first.user_id === currentUserId} />
+        <PodiumSlot entry={first} rank={1} isMe={first.user_id === currentUserId} onSelect={onSelect} />
         {third ? (
-          <PodiumSlot entry={third} rank={3} isMe={third.user_id === currentUserId} />
+          <PodiumSlot entry={third} rank={3} isMe={third.user_id === currentUserId} onSelect={onSelect} />
         ) : (
           <div className="flex-1" />
         )}
