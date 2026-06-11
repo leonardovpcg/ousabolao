@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState, useTransition } from 'react'
-import { ChevronDown, ChevronUp, Lock, CheckCircle2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Lock, CheckCircle2, Users } from 'lucide-react'
 import { upsertBet } from '../actions'
 import { Countdown } from './Countdown'
 import type { MatchData, OtherBet } from './types'
@@ -120,6 +120,21 @@ function Stepper({
 
 // ── Others' bets list (accordion) ────────────────────────────────
 
+function BetAvatar({ name }: { name: string }) {
+  const initials = name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+  return (
+    <div className="w-6 h-6 rounded-full bg-card-sunken border border-hairline flex items-center justify-center flex-shrink-0">
+      <span className="text-[9px] font-bold text-ink-soft leading-none">{initials}</span>
+    </div>
+  )
+}
+
 function OtherBetsList({
   bets,
   isFinished,
@@ -131,42 +146,56 @@ function OtherBetsList({
 
   if (bets.length === 0) return null
 
+  const sorted = [...bets].sort((a, b) =>
+    (a.user_name ?? '').localeCompare(b.user_name ?? '', 'pt-BR', { sensitivity: 'base' }),
+  )
+
   const label = isFinished ? 'Palpites dos parças' : 'Palpites revelados'
 
   return (
-    <div className="mt-4 border-t border-hairline">
+    <div className="mt-3 border-t border-hairline">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="w-full flex items-center justify-between py-3 text-left group"
+        className="w-full flex items-center justify-between py-2.5 text-left group"
       >
-        <span className="text-[11px] font-semibold text-ink-faint uppercase tracking-wider group-hover:text-ink-soft transition-colors">
-          {label}
-        </span>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-[11px] font-semibold text-ink-faint tabular-nums">
+        <div className="flex items-center gap-1.5">
+          <Users size={11} strokeWidth={2} className="text-ink-faint group-hover:text-ink-soft transition-colors" />
+          <span className="text-[11px] font-semibold text-ink-faint uppercase tracking-wider group-hover:text-ink-soft transition-colors">
+            {label}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[10px] font-bold text-ink-soft tabular-nums bg-card-sunken border border-hairline px-2 py-0.5 rounded-pill leading-none">
             {bets.length}
           </span>
           {open
-            ? <ChevronUp size={14} strokeWidth={2} className="text-ink-faint" />
-            : <ChevronDown size={14} strokeWidth={2} className="text-ink-faint" />
+            ? <ChevronUp size={13} strokeWidth={2.5} className="text-ink-faint" />
+            : <ChevronDown size={13} strokeWidth={2.5} className="text-ink-faint" />
           }
         </div>
       </button>
 
       {open && (
-        <div className="flex flex-col gap-1.5 pb-2">
-          {bets.map((b) => (
-            <div key={b.user_id} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-ink-soft truncate flex-1">
+        <div className="rounded-xl border border-hairline overflow-hidden mb-1">
+          {sorted.map((b, i) => (
+            <div
+              key={b.user_id}
+              className={[
+                'flex items-center gap-2.5 px-3 py-2',
+                i !== sorted.length - 1 ? 'border-b border-hairline' : '',
+              ].join(' ')}
+            >
+              <BetAvatar name={b.user_name ?? 'P'} />
+              <span className="text-xs font-medium text-ink truncate flex-1">
                 {b.user_name ?? 'Participante'}
               </span>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="font-display text-sm font-semibold text-ink nums">
+              <div className="flex items-center gap-2.5 flex-shrink-0">
+                <span className="font-display text-sm font-bold text-ink nums">
                   {b.home_prediction} × {b.away_prediction}
                 </span>
                 {isFinished && b.points !== null && (
-                  <span className={`text-xs min-w-[40px] text-right ${POINTS_COLOR[b.points] ?? 'text-ink-faint'}`}>
+                  <span className={`text-xs font-bold min-w-[36px] text-right ${POINTS_COLOR[b.points] ?? 'text-ink-faint'}`}>
                     {b.points} pts
                   </span>
                 )}

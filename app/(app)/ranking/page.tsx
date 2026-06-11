@@ -1,6 +1,8 @@
 import { Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { RankingClient, type RankingEntry } from './_components/RankingClient'
+import { buildRankingEntries } from './rankingUtils'
+import type { RankingEntry } from './rankingUtils'
+import { RankingClient } from './_components/RankingClient'
 
 async function getData(): Promise<{ entries: RankingEntry[]; currentUserId: string | null }> {
   const supabase = await createClient()
@@ -13,33 +15,13 @@ async function getData(): Promise<{ entries: RankingEntry[]; currentUserId: stri
     supabase.auth.getUser(),
     supabase
       .from('ranking')
-      .select('id, user_id, position, total_points, exact_scores, correct_results')
-      .order('total_points', { ascending: false })
-      .order('exact_scores', { ascending: false })
-      .order('correct_results', { ascending: false }),
+      .select('id, user_id, total_points, exact_scores, correct_results'),
     supabase.from('profiles').select('id, name, avatar_url'),
   ])
 
   if (rankErr || profErr) throw new Error('DB error')
 
-  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
-
-  const entries: RankingEntry[] = (rankings ?? [])
-    .map((r, idx) => {
-      const profile = profileMap.get(r.user_id)
-      return {
-        ...r,
-        position: r.position ?? idx + 1,
-        name: profile?.name ?? 'Participante',
-        avatar_url: profile?.avatar_url ?? null,
-      }
-    })
-    .sort((a, b) => {
-      if (b.total_points !== a.total_points) return b.total_points - a.total_points
-      if ((b.exact_scores ?? 0) !== (a.exact_scores ?? 0)) return (b.exact_scores ?? 0) - (a.exact_scores ?? 0)
-      if ((b.correct_results ?? 0) !== (a.correct_results ?? 0)) return (b.correct_results ?? 0) - (a.correct_results ?? 0)
-      return (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR', { sensitivity: 'base' })
-    })
+  const entries = buildRankingEntries(rankings ?? [], profiles ?? [])
 
   return { entries, currentUserId: user?.id ?? null }
 }

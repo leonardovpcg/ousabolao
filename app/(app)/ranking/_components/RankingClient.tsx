@@ -3,19 +3,12 @@
 import { useEffect, useState } from 'react'
 import { Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { buildRankingEntries } from '../rankingUtils'
+import type { RankingEntry } from '../rankingUtils'
 import { Podium } from './Podium'
 import { RankList } from './RankList'
 
-export type RankingEntry = {
-  id: string
-  user_id: string
-  position: number
-  total_points: number
-  exact_scores: number
-  correct_results: number
-  name: string
-  avatar_url: string | null
-}
+export type { RankingEntry }
 
 type Props = {
   initialEntries: RankingEntry[]
@@ -33,27 +26,13 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
       const [{ data: rankings }, { data: profiles }] = await Promise.all([
         supabase
           .from('ranking')
-          .select('id, user_id, position, total_points, exact_scores, correct_results')
-          .order('total_points', { ascending: false })
-          .order('exact_scores', { ascending: false })
-          .order('correct_results', { ascending: false }),
+          .select('id, user_id, total_points, exact_scores, correct_results'),
         supabase.from('profiles').select('id, name, avatar_url'),
       ])
 
       if (cancelled || !rankings || !profiles) return
 
-      const profileMap = new Map(profiles.map((p) => [p.id, p]))
-      setEntries(
-        rankings.map((r, idx) => {
-          const profile = profileMap.get(r.user_id)
-          return {
-            ...r,
-            position: r.position ?? idx + 1,
-            name: profile?.name ?? 'Participante',
-            avatar_url: profile?.avatar_url ?? null,
-          }
-        })
-      )
+      setEntries(buildRankingEntries(rankings, profiles))
     }
 
     const channel = supabase
