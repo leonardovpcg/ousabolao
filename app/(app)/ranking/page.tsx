@@ -24,15 +24,22 @@ async function getData(): Promise<{ entries: RankingEntry[]; currentUserId: stri
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
 
-  const entries: RankingEntry[] = (rankings ?? []).map((r, idx) => {
-    const profile = profileMap.get(r.user_id)
-    return {
-      ...r,
-      position: r.position ?? idx + 1,
-      name: profile?.name ?? 'Participante',
-      avatar_url: profile?.avatar_url ?? null,
-    }
-  })
+  const entries: RankingEntry[] = (rankings ?? [])
+    .map((r, idx) => {
+      const profile = profileMap.get(r.user_id)
+      return {
+        ...r,
+        position: r.position ?? idx + 1,
+        name: profile?.name ?? 'Participante',
+        avatar_url: profile?.avatar_url ?? null,
+      }
+    })
+    .sort((a, b) => {
+      if (b.total_points !== a.total_points) return b.total_points - a.total_points
+      if ((b.exact_scores ?? 0) !== (a.exact_scores ?? 0)) return (b.exact_scores ?? 0) - (a.exact_scores ?? 0)
+      if ((b.correct_results ?? 0) !== (a.correct_results ?? 0)) return (b.correct_results ?? 0) - (a.correct_results ?? 0)
+      return (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR', { sensitivity: 'base' })
+    })
 
   return { entries, currentUserId: user?.id ?? null }
 }
