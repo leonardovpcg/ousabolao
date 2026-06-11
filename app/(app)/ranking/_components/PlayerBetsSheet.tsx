@@ -149,6 +149,12 @@ export function PlayerBetsSheet({ entry, onClose }: Props) {
     })
   }, [entry?.user_id])
 
+  // Lock background scroll while open
+  useEffect(() => {
+    if (entry) document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [entry])
+
   useEffect(() => {
     if (!entry) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -181,12 +187,10 @@ export function PlayerBetsSheet({ entry, onClose }: Props) {
             className={[
               'fixed z-50 bg-card border border-hairline rounded-card',
               'flex flex-col overflow-hidden',
-              // Mobile: 16px from all edges
-              'inset-4',
-              // Desktop: max-width centered dialog
-              'lg:inset-auto lg:left-1/2 lg:top-1/2',
-              'lg:-translate-x-1/2 lg:-translate-y-1/2',
-              'lg:w-full lg:max-w-md lg:max-h-[85vh]',
+              // Mobile: card centralizado, 68% da altura da tela
+              'left-4 right-4 top-1/2 -translate-y-1/2 h-[68vh]',
+              // Desktop: dialog padrão centralizado
+              'lg:left-1/2 lg:-translate-x-1/2 lg:w-full lg:max-w-md lg:h-[80vh]',
             ].join(' ')}
             style={{ boxShadow: '0 2px 4px rgba(20,18,25,.06), 0 16px 48px rgba(20,18,25,.16)' }}
           >
@@ -245,7 +249,7 @@ export function PlayerBetsSheet({ entry, onClose }: Props) {
             </div>
 
             {/* Scrollable bets list */}
-            <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain">
               {loading ? (
                 <div className="py-8 flex flex-col items-center gap-3">
                   <div className="w-7 h-7 rounded-full border-2 border-hairline border-t-brand animate-spin" />
