@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, FileText, Loader2, AlertCircle, LayoutGrid } from 'lucide-react'
+import { Download, FileText, Loader2, AlertCircle, LayoutGrid, ImageDown } from 'lucide-react'
 import { formatDate, APP_TZ } from '@/lib/utils/datetime'
 import { PHASES, PHASE_LABELS } from '@/app/admin/jogos/constants'
 import type { BetEntry, MatchForBets, ProfileRow, NationalTeam } from '../page'
@@ -79,10 +79,14 @@ function MatrixTable({
   filteredMatches,
   rows,
   betMap,
+  downloadingMatchId,
+  onDownloadImage,
 }: {
   filteredMatches: MatchForBets[]
   rows: ProfileRow[]
   betMap: BetMap
+  downloadingMatchId: string | null
+  onDownloadImage: (matchId: string) => void
 }) {
   if (filteredMatches.length === 0) {
     return (
@@ -145,6 +149,19 @@ function MatrixTable({
                         </span>
                       </div>
                     )}
+                    {/* Download image button */}
+                    <div className="mt-1.5">
+                      <button
+                        onClick={() => onDownloadImage(m.id)}
+                        title="Baixar imagem para WhatsApp"
+                        className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-hairline transition-colors group"
+                      >
+                        {downloadingMatchId === m.id
+                          ? <Loader2 size={10} className="animate-spin text-ink-soft" />
+                          : <ImageDown size={10} strokeWidth={2} className="text-ink-faint group-hover:text-brand transition-colors" />
+                        }
+                      </button>
+                    </div>
                   </th>
                 )
               })}
@@ -247,6 +264,7 @@ export function PalpitesClient({ bets, matches, profiles }: Props) {
   const [csvLoading, setCsvLoading] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [downloadingMatchId, setDownloadingMatchId] = useState<string | null>(null)
 
   // ── Derived: available phases ───────────────────────────────
   const availablePhases = useMemo(() => {
@@ -378,6 +396,29 @@ export function PalpitesClient({ bets, matches, profiles }: Props) {
     }
   }, [selectedPhase, selectedRound, selectedParticipantId])
 
+  // ── Match image download ─────────────────────────────────────
+  const handleDownloadMatchImage = useCallback(async (matchId: string) => {
+    setDownloadingMatchId(matchId)
+    setExportError(null)
+    try {
+      const res = await fetch(`/api/admin/match-image?matchId=${matchId}`)
+      if (!res.ok) { setExportError('Erro ao gerar imagem.'); return }
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url
+      const cd   = res.headers.get('Content-Disposition') ?? ''
+      const name = cd.match(/filename="([^"]+)"/)?.[1] ?? `palpites-${matchId}.png`
+      a.download = name
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setExportError('Erro ao gerar imagem.')
+    } finally {
+      setDownloadingMatchId(null)
+    }
+  }, [])
+
   // ── Render ──────────────────────────────────────────────────
 
   return (
@@ -504,6 +545,8 @@ export function PalpitesClient({ bets, matches, profiles }: Props) {
         filteredMatches={filteredMatches}
         rows={rows}
         betMap={betMap}
+        downloadingMatchId={downloadingMatchId}
+        onDownloadImage={handleDownloadMatchImage}
       />
     </div>
   )

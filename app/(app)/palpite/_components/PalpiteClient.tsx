@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Calendar, Lock } from 'lucide-react'
 import { cgDateKey, formatDayLabel, formatDayOfWeek } from '@/lib/utils/datetime'
@@ -27,6 +27,16 @@ function DateNav({
   onChange: (day: string) => void
 }) {
   const idx = days.indexOf(selected)
+  const selectedRef = useRef<HTMLButtonElement>(null)
+
+  // Scroll selected pill into view whenever selection changes
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    })
+  }, [selected])
 
   return (
     <div className="flex items-center gap-2 -mx-4 px-4 lg:mx-0 lg:px-0">
@@ -47,6 +57,7 @@ function DateNav({
             return (
               <button
                 key={day}
+                ref={isSelected ? selectedRef : undefined}
                 onClick={() => onChange(day)}
                 className={[
                   'flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl transition-all duration-150',

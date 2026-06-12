@@ -213,7 +213,7 @@ function OtherBetsList({
 function CardHeader({ match }: { match: MatchData }) {
   const sub = subLabel(match)
   return (
-    <div className="flex items-center justify-between mb-5">
+    <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2 min-w-0">
         {sub && (
           <span className="text-[11px] font-semibold text-ink-faint uppercase tracking-wider truncate">
