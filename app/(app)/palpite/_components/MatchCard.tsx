@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useRef, useState, useTransition } from 'react'
+import { useCallback, useMemo, useRef, useState, useTransition } from 'react'
 import { ChevronDown, ChevronUp, Lock, CheckCircle2, Users, Share2, Loader2 } from 'lucide-react'
 import { upsertBet } from '../actions'
 import { Countdown } from './Countdown'
 import type { MatchData, OtherBet } from './types'
 import { formatTime } from '@/lib/utils/datetime'
+import { MatchShareCard } from '@/components/ui/MatchShareCard'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -241,6 +242,7 @@ function CardHeader({ match }: { match: MatchData }) {
 type Props = {
   match: MatchData
   canBet: boolean
+  currentUserName: string
 }
 
 type CardMode = 'upcoming' | 'open' | 'locked' | 'finished'
@@ -252,7 +254,7 @@ function getInitialMode(match: MatchData): CardMode {
   return 'open'
 }
 
-export function MatchCard({ match, canBet }: Props) {
+export function MatchCard({ match, canBet, currentUserName }: Props) {
   const [mode, setMode] = useState<CardMode>(() => getInitialMode(match))
   const [home, setHome] = useState(match.my_bet?.home_prediction ?? 0)
   const [away, setAway] = useState(match.my_bet?.away_prediction ?? 0)
@@ -262,23 +264,34 @@ export function MatchCard({ match, canBet }: Props) {
   )
   const [justSaved, setJustSaved] = useState(false)
   const [pending, startTransition] = useTransition()
-  const [isCapturing, setIsCapturing] = useState(false)
   const [imgLoading, setImgLoading] = useState(false)
-  const cardRef = useRef<HTMLDivElement>(null)
+  const shareCardRef = useRef<HTMLDivElement>(null)
 
   const handleExpire = useCallback(() => setMode('locked'), [])
 
   const imgFilename = `${(match.home_team?.name ?? 'time1')}-x-${(match.away_team?.name ?? 'time2')}.png`
     .toLowerCase().replace(/\s+/g, '-')
 
+  // Merge my_bet + other_bets into a single flat list for the share card
+  const shareBets = useMemo(() => {
+    const myEntry = match.my_bet
+      ? [{ name: currentUserName, home: match.my_bet.home_prediction, away: match.my_bet.away_prediction, points: match.my_bet.points }]
+      : []
+    const others = match.other_bets.map(b => ({
+      name: b.user_name ?? 'Participante',
+      home: b.home_prediction,
+      away: b.away_prediction,
+      points: b.points,
+    }))
+    return [...myEntry, ...others]
+  }, [match.my_bet, match.other_bets, currentUserName])
+
   const handleShare = useCallback(async () => {
-    if (!cardRef.current || imgLoading) return
+    if (!shareCardRef.current || imgLoading) return
     setImgLoading(true)
-    setIsCapturing(true)
-    await new Promise(r => setTimeout(r, 150))
     try {
       const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, backgroundColor: '#FFFFFF' })
+      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 2 })
       const res = await fetch(dataUrl)
       const blob = await res.blob()
       const file = new File([blob], imgFilename, { type: 'image/png' })
@@ -293,7 +306,6 @@ export function MatchCard({ match, canBet }: Props) {
     } catch (e) {
       console.error('Erro ao compartilhar imagem:', e)
     } finally {
-      setIsCapturing(false)
       setImgLoading(false)
     }
   }, [imgLoading, imgFilename])
@@ -321,75 +333,96 @@ export function MatchCard({ match, canBet }: Props) {
     const myPts = myPoints !== null ? myPoints : null
 
     return (
-      <div
-        ref={cardRef}
-        className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5"
-        role="article"
-      >
-        <CardHeader match={match} />
-
-        {/* Official result */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <TeamFlag url={homeTeam?.emblem_url ?? null} name={homeTeam?.name ?? '?'} size={44} />
-            <span className="text-xs font-semibold text-ink text-center leading-tight">
-              {homeTeam?.name ?? '–'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 px-2">
-            <span className="font-display text-4xl font-bold text-ink nums">
-              {match.home_score}
-            </span>
-            <span className="text-ink-faint text-lg font-light">×</span>
-            <span className="font-display text-4xl font-bold text-ink nums">
-              {match.away_score}
-            </span>
-          </div>
-
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <TeamFlag url={awayTeam?.emblem_url ?? null} name={awayTeam?.name ?? '?'} size={44} />
-            <span className="text-xs font-semibold text-ink text-center leading-tight">
-              {awayTeam?.name ?? '–'}
-            </span>
-          </div>
+      <>
+        {/* Off-screen share card — captured by handleShare */}
+        <div
+          ref={shareCardRef}
+          aria-hidden="true"
+          style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}
+        >
+          <MatchShareCard
+            homeTeam={match.home_team}
+            awayTeam={match.away_team}
+            homeScore={match.home_score}
+            awayScore={match.away_score}
+            isFinished
+            phaseLabel={match.phase_label}
+            matchGroup={match.match_group}
+            round={match.round}
+            matchDate={match.match_date}
+            bets={shareBets}
+          />
         </div>
 
-        {/* My bet + points */}
-        {match.my_bet && (
-          <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-card-sunken border border-hairline">
-            <span className="text-xs text-ink-soft font-medium">Seu palpite</span>
-            <div className="flex items-center gap-3">
-              <span className="font-display text-sm font-bold text-ink nums">
-                {match.my_bet.home_prediction} × {match.my_bet.away_prediction}
+        <div
+          className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5"
+          role="article"
+        >
+          <CardHeader match={match} />
+
+          {/* Official result */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 flex flex-col items-center gap-2">
+              <TeamFlag url={homeTeam?.emblem_url ?? null} name={homeTeam?.name ?? '?'} size={44} />
+              <span className="text-xs font-semibold text-ink text-center leading-tight">
+                {homeTeam?.name ?? '–'}
               </span>
-              {myPts !== null && (
-                <span className={`text-sm ${POINTS_COLOR[myPts] ?? 'text-ink-faint'}`}>
-                  {myPts === 15 ? '15 pts' : myPts === 5 ? '5 pts' : '0 pts'}
-                </span>
-              )}
+            </div>
+
+            <div className="flex items-center gap-2 px-2">
+              <span className="font-display text-4xl font-bold text-ink nums">
+                {match.home_score}
+              </span>
+              <span className="text-ink-faint text-lg font-light">×</span>
+              <span className="font-display text-4xl font-bold text-ink nums">
+                {match.away_score}
+              </span>
+            </div>
+
+            <div className="flex-1 flex flex-col items-center gap-2">
+              <TeamFlag url={awayTeam?.emblem_url ?? null} name={awayTeam?.name ?? '?'} size={44} />
+              <span className="text-xs font-semibold text-ink text-center leading-tight">
+                {awayTeam?.name ?? '–'}
+              </span>
             </div>
           </div>
-        )}
 
-        <OtherBetsList bets={match.other_bets} isFinished forceOpen={isCapturing} />
+          {/* My bet + points */}
+          {match.my_bet && (
+            <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-card-sunken border border-hairline">
+              <span className="text-xs text-ink-soft font-medium">Seu palpite</span>
+              <div className="flex items-center gap-3">
+                <span className="font-display text-sm font-bold text-ink nums">
+                  {match.my_bet.home_prediction} × {match.my_bet.away_prediction}
+                </span>
+                {myPts !== null && (
+                  <span className={`text-sm ${POINTS_COLOR[myPts] ?? 'text-ink-faint'}`}>
+                    {myPts === 15 ? '15 pts' : myPts === 5 ? '5 pts' : '0 pts'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={handleShare}
-            disabled={imgLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
-            title="Compartilhar palpites"
-          >
-            {imgLoading
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Share2 size={12} strokeWidth={2} />
-            }
-            Compartilhar
-          </button>
+          <OtherBetsList bets={match.other_bets} isFinished />
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={imgLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
+              title="Compartilhar palpites"
+            >
+              {imgLoading
+                ? <Loader2 size={12} className="animate-spin" />
+                : <Share2 size={12} strokeWidth={2} />
+              }
+              Compartilhar
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
@@ -421,59 +454,81 @@ export function MatchCard({ match, canBet }: Props) {
   // ── LOCKED state ────────────────────────────────────────────────
   if (mode === 'locked') {
     return (
-      <div ref={cardRef} className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5">
-        <CardHeader match={match} />
-
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <TeamFlag url={homeTeam?.emblem_url ?? null} name={homeTeam?.name ?? '?'} size={40} />
-            <span className="text-xs font-semibold text-ink text-center leading-tight">
-              {homeTeam?.name ?? '–'}
-            </span>
-          </div>
-          <span className="text-ink-faint text-sm font-medium px-2">×</span>
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <TeamFlag url={awayTeam?.emblem_url ?? null} name={awayTeam?.name ?? '?'} size={40} />
-            <span className="text-xs font-semibold text-ink text-center leading-tight">
-              {awayTeam?.name ?? '–'}
-            </span>
-          </div>
+      <>
+        {/* Off-screen share card — captured by handleShare */}
+        <div
+          ref={shareCardRef}
+          aria-hidden="true"
+          style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}
+        >
+          <MatchShareCard
+            homeTeam={match.home_team}
+            awayTeam={match.away_team}
+            homeScore={match.home_score}
+            awayScore={match.away_score}
+            isFinished={false}
+            phaseLabel={match.phase_label}
+            matchGroup={match.match_group}
+            round={match.round}
+            matchDate={match.match_date}
+            bets={shareBets}
+          />
         </div>
 
-        {/* My bet or no bet */}
-        {savedPrediction || match.my_bet ? (
-          <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-card-sunken border border-hairline mb-1">
-            <span className="text-xs text-ink-soft font-medium">Seu palpite</span>
-            <div className="flex items-center gap-2">
-              <Lock size={11} className="text-ink-faint" />
-              <span className="font-display text-sm font-bold text-ink nums">
-                {savedPrediction?.h ?? match.my_bet?.home_prediction} ×{' '}
-                {savedPrediction?.a ?? match.my_bet?.away_prediction}
+        <div className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5">
+          <CardHeader match={match} />
+
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 flex flex-col items-center gap-2">
+              <TeamFlag url={homeTeam?.emblem_url ?? null} name={homeTeam?.name ?? '?'} size={40} />
+              <span className="text-xs font-semibold text-ink text-center leading-tight">
+                {homeTeam?.name ?? '–'}
+              </span>
+            </div>
+            <span className="text-ink-faint text-sm font-medium px-2">×</span>
+            <div className="flex-1 flex flex-col items-center gap-2">
+              <TeamFlag url={awayTeam?.emblem_url ?? null} name={awayTeam?.name ?? '?'} size={40} />
+              <span className="text-xs font-semibold text-ink text-center leading-tight">
+                {awayTeam?.name ?? '–'}
               </span>
             </div>
           </div>
-        ) : (
-          <p className="text-center text-xs text-ink-faint py-1">Você não enviou palpite</p>
-        )}
 
-        <OtherBetsList bets={match.other_bets} isFinished={false} forceOpen={isCapturing} />
+          {/* My bet or no bet */}
+          {savedPrediction || match.my_bet ? (
+            <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-card-sunken border border-hairline mb-1">
+              <span className="text-xs text-ink-soft font-medium">Seu palpite</span>
+              <div className="flex items-center gap-2">
+                <Lock size={11} className="text-ink-faint" />
+                <span className="font-display text-sm font-bold text-ink nums">
+                  {savedPrediction?.h ?? match.my_bet?.home_prediction} ×{' '}
+                  {savedPrediction?.a ?? match.my_bet?.away_prediction}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center text-xs text-ink-faint py-1">Você não enviou palpite</p>
+          )}
 
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={handleShare}
-            disabled={imgLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
-            title="Compartilhar palpites"
-          >
-            {imgLoading
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Share2 size={12} strokeWidth={2} />
-            }
-            Compartilhar
-          </button>
+          <OtherBetsList bets={match.other_bets} isFinished={false} />
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={imgLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
+              title="Compartilhar palpites"
+            >
+              {imgLoading
+                ? <Loader2 size={12} className="animate-spin" />
+                : <Share2 size={12} strokeWidth={2} />
+              }
+              Compartilhar
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 

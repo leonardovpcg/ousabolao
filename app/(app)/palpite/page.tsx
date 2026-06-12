@@ -85,7 +85,7 @@ export default async function PalpitePage() {
     { data: myBetRows },
     { data: allBetRows },
   ] = await Promise.all([
-    supabase.from('profiles').select('payment_status').eq('id', user.id).single(),
+    supabase.from('profiles').select('payment_status, name').eq('id', user.id).single(),
     supabase.rpc('is_admin'),
     supabase.from('tournament_phases').select('*').order('display_order'),
     supabase
@@ -179,11 +179,13 @@ export default async function PalpitePage() {
 
   const isPaid = profileData?.payment_status === 'paid'
   const isAdmin = isAdminResult === true
+  const currentUserName = (profileData as { name?: string | null } | null)?.name ?? 'Você'
 
   return (
     <PalpiteClient
       matches={matches}
       currentUserId={user.id}
+      currentUserName={currentUserName}
       isPaid={isPaid}
       isAdmin={isAdmin}
       defaultDay={defaultDay}

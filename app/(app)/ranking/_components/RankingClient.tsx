@@ -8,6 +8,7 @@ import type { RankingEntry } from '../rankingUtils'
 import { Podium } from './Podium'
 import { RankList } from './RankList'
 import { PlayerBetsSheet } from './PlayerBetsSheet'
+import { RankingShareCard } from '@/components/ui/RankingShareCard'
 
 export type { RankingEntry }
 
@@ -20,14 +21,14 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
   const [entries, setEntries] = useState<RankingEntry[]>(initialEntries)
   const [selectedEntry, setSelectedEntry] = useState<RankingEntry | null>(null)
   const [imgLoading, setImgLoading] = useState(false)
-  const rankingRef = useRef<HTMLDivElement>(null)
+  const shareCardRef = useRef<HTMLDivElement>(null)
 
   const handleShare = useCallback(async () => {
-    if (!rankingRef.current || imgLoading) return
+    if (!shareCardRef.current || imgLoading) return
     setImgLoading(true)
     try {
       const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(rankingRef.current, { pixelRatio: 2, backgroundColor: '#F6F5F1' })
+      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 2 })
       const res = await fetch(dataUrl)
       const blob = await res.blob()
       const file = new File([blob], 'ranking-ousabolao.png', { type: 'image/png' })
@@ -102,8 +103,16 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
 
   return (
     <div>
-      {/* Captured area — excludes the sheet overlay */}
-      <div ref={rankingRef}>
+      {/* Off-screen share card — captured by handleShare */}
+      <div
+        ref={shareCardRef}
+        aria-hidden="true"
+        style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}
+      >
+        <RankingShareCard entries={entries} currentUserId={currentUserId} />
+      </div>
+
+      <div>
         <div className="flex items-start justify-between mb-5">
           <div>
             <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-tight">

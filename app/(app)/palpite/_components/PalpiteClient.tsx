@@ -10,6 +10,7 @@ import type { MatchData } from './types'
 type Props = {
   matches: MatchData[]
   currentUserId: string
+  currentUserName: string
   isPaid: boolean
   isAdmin: boolean
   defaultDay: string
@@ -108,6 +109,7 @@ function DayContext({ matches }: { matches: MatchData[] }) {
 export function PalpiteClient({
   matches,
   currentUserId: _currentUserId,
+  currentUserName,
   isPaid,
   isAdmin,
   defaultDay,
@@ -198,7 +200,7 @@ export function PalpiteClient({
         ) : (
           <div className="flex flex-col gap-4">
             {dayMatches.map((match) => (
-              <MatchCard key={match.id} match={match} canBet={canBet} />
+              <MatchCard key={match.id} match={match} canBet={canBet} currentUserName={currentUserName} />
             ))}
           </div>
         )}
