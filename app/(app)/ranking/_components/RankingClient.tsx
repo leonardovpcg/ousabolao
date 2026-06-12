@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Trophy } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Trophy, Share2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { buildRankingEntries } from '../rankingUtils'
 import type { RankingEntry } from '../rankingUtils'
@@ -19,6 +19,32 @@ type Props = {
 export function RankingClient({ initialEntries, currentUserId }: Props) {
   const [entries, setEntries] = useState<RankingEntry[]>(initialEntries)
   const [selectedEntry, setSelectedEntry] = useState<RankingEntry | null>(null)
+  const [imgLoading, setImgLoading] = useState(false)
+  const rankingRef = useRef<HTMLDivElement>(null)
+
+  const handleShare = useCallback(async () => {
+    if (!rankingRef.current || imgLoading) return
+    setImgLoading(true)
+    try {
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(rankingRef.current, { pixelRatio: 2, backgroundColor: '#F6F5F1' })
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const file = new File([blob], 'ranking-ousabolao.png', { type: 'image/png' })
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'OusaBolão' })
+      } else {
+        const a = document.createElement('a')
+        a.href = dataUrl
+        a.download = 'ranking-ousabolao.png'
+        a.click()
+      }
+    } catch (e) {
+      console.error('Erro ao compartilhar imagem:', e)
+    } finally {
+      setImgLoading(false)
+    }
+  }, [imgLoading])
 
   useEffect(() => {
     const supabase = createClient()
@@ -76,24 +102,42 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
 
   return (
     <div>
-      <div className="mb-5">
-        <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-tight">
-          Ranking
-        </h1>
-        <p className="text-ink-soft text-sm mt-1">Copa do Mundo 2026</p>
+      {/* Captured area — excludes the sheet overlay */}
+      <div ref={rankingRef}>
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-ink tracking-tight leading-tight">
+              Ranking
+            </h1>
+            <p className="text-ink-soft text-sm mt-1">Copa do Mundo 2026</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleShare}
+            disabled={imgLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40 mt-1"
+            title="Compartilhar ranking"
+          >
+            {imgLoading
+              ? <Loader2 size={12} className="animate-spin" />
+              : <Share2 size={12} strokeWidth={2} />
+            }
+            Compartilhar
+          </button>
+        </div>
+
+        <Podium entries={top3} currentUserId={currentUserId} onSelect={setSelectedEntry} />
+
+        {rest.length > 0 && (
+          <RankList
+            entries={rest}
+            currentUserId={currentUserId}
+            picanhaUserIds={picanhaUserIds}
+            showPicanha={showPicanha}
+            onSelect={setSelectedEntry}
+          />
+        )}
       </div>
-
-      <Podium entries={top3} currentUserId={currentUserId} onSelect={setSelectedEntry} />
-
-      {rest.length > 0 && (
-        <RankList
-          entries={rest}
-          currentUserId={currentUserId}
-          picanhaUserIds={picanhaUserIds}
-          showPicanha={showPicanha}
-          onSelect={setSelectedEntry}
-        />
-      )}
 
       <PlayerBetsSheet entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
     </div>

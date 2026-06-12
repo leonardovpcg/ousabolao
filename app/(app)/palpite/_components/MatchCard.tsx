@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState, useTransition } from 'react'
-import { ChevronDown, ChevronUp, Lock, CheckCircle2, Users, ImageDown, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Lock, CheckCircle2, Users, Share2, Loader2 } from 'lucide-react'
 import { upsertBet } from '../actions'
 import { Countdown } from './Countdown'
 import type { MatchData, OtherBet } from './types'
@@ -268,7 +268,10 @@ export function MatchCard({ match, canBet }: Props) {
 
   const handleExpire = useCallback(() => setMode('locked'), [])
 
-  const handleDownloadImage = useCallback(async () => {
+  const imgFilename = `${(match.home_team?.name ?? 'time1')}-x-${(match.away_team?.name ?? 'time2')}.png`
+    .toLowerCase().replace(/\s+/g, '-')
+
+  const handleShare = useCallback(async () => {
     if (!cardRef.current || imgLoading) return
     setImgLoading(true)
     setIsCapturing(true)
@@ -276,19 +279,24 @@ export function MatchCard({ match, canBet }: Props) {
     try {
       const { toPng } = await import('html-to-image')
       const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, backgroundColor: '#FFFFFF' })
-      const a = document.createElement('a')
-      a.href = dataUrl
-      const home = match.home_team?.name ?? 'time1'
-      const away = match.away_team?.name ?? 'time2'
-      a.download = `${home}-x-${away}.png`.toLowerCase().replace(/\s+/g, '-')
-      a.click()
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const file = new File([blob], imgFilename, { type: 'image/png' })
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'OusaBolão' })
+      } else {
+        const a = document.createElement('a')
+        a.href = dataUrl
+        a.download = imgFilename
+        a.click()
+      }
     } catch (e) {
-      console.error('Erro ao gerar imagem:', e)
+      console.error('Erro ao compartilhar imagem:', e)
     } finally {
       setIsCapturing(false)
       setImgLoading(false)
     }
-  }, [imgLoading, match.home_team?.name, match.away_team?.name])
+  }, [imgLoading, imgFilename])
 
   function handleSubmit() {
     setError(null)
@@ -369,16 +377,16 @@ export function MatchCard({ match, canBet }: Props) {
         <div className="mt-3 flex justify-end">
           <button
             type="button"
-            onClick={handleDownloadImage}
+            onClick={handleShare}
             disabled={imgLoading}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
-            title="Baixar imagem para WhatsApp"
+            title="Compartilhar palpites"
           >
             {imgLoading
               ? <Loader2 size={12} className="animate-spin" />
-              : <ImageDown size={12} strokeWidth={2} />
+              : <Share2 size={12} strokeWidth={2} />
             }
-            Salvar imagem
+            Compartilhar
           </button>
         </div>
       </div>
@@ -453,16 +461,16 @@ export function MatchCard({ match, canBet }: Props) {
         <div className="mt-3 flex justify-end">
           <button
             type="button"
-            onClick={handleDownloadImage}
+            onClick={handleShare}
             disabled={imgLoading}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
-            title="Baixar imagem para WhatsApp"
+            title="Compartilhar palpites"
           >
             {imgLoading
               ? <Loader2 size={12} className="animate-spin" />
-              : <ImageDown size={12} strokeWidth={2} />
+              : <Share2 size={12} strokeWidth={2} />
             }
-            Salvar imagem
+            Compartilhar
           </button>
         </div>
       </div>
