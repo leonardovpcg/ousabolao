@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState, useTransition } from 'react'
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import { ChevronDown, ChevronUp, Lock, CheckCircle2, Users, Share2, Loader2 } from 'lucide-react'
 import { upsertBet } from '../actions'
 import { Countdown } from './Countdown'
 import type { MatchData, OtherBet } from './types'
-import { formatTime } from '@/lib/utils/datetime'
-import { MatchShareCard } from '@/components/ui/MatchShareCard'
+import { formatTime, formatDate } from '@/lib/utils/datetime'
+import { urlToDataUrl } from '@/lib/utils/shareCapture'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -265,7 +265,6 @@ export function MatchCard({ match, canBet, currentUserName }: Props) {
   const [justSaved, setJustSaved] = useState(false)
   const [pending, startTransition] = useTransition()
   const [imgLoading, setImgLoading] = useState(false)
-  const shareCardRef = useRef<HTMLDivElement>(null)
 
   const handleExpire = useCallback(() => setMode('locked'), [])
 
@@ -287,16 +286,65 @@ export function MatchCard({ match, canBet, currentUserName }: Props) {
   }, [match.my_bet, match.other_bets, currentUserName])
 
   const handleShare = useCallback(async () => {
-    if (!shareCardRef.current || imgLoading) return
+    if (imgLoading) return
     setImgLoading(true)
+    const container = document.createElement('div')
+    Object.assign(container.style, {
+      position: 'fixed', left: '0', top: '-9999px',
+      width: '640px', pointerEvents: 'none', zIndex: '-1',
+    })
+    document.body.appendChild(container)
     try {
+      // Pre-fetch flag images as data URLs to avoid iOS Safari CORS canvas taint
+      const [homeEmb, awayEmb] = await Promise.all([
+        urlToDataUrl(match.home_team?.emblem_url ?? null),
+        urlToDataUrl(match.away_team?.emblem_url ?? null),
+      ])
+
+      const [{ createRoot }, { MatchShareCard }] = await Promise.all([
+        import('react-dom/client'),
+        import('@/components/ui/MatchShareCard'),
+      ])
+
+      const root = createRoot(container)
+      root.render(
+        <MatchShareCard
+          homeTeam={match.home_team ? { ...match.home_team, emblem_url: homeEmb } : null}
+          awayTeam={match.away_team ? { ...match.away_team, emblem_url: awayEmb } : null}
+          homeScore={match.home_score}
+          awayScore={match.away_score}
+          isFinished={mode === 'finished'}
+          phaseLabel={match.phase_label}
+          matchGroup={match.match_group}
+          round={match.round}
+          matchDate={match.match_date}
+          bets={shareBets}
+        />
+      )
+
+      // Wait for React to render and browser to paint (2 RAF + 50ms buffer)
+      await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))))
+
+      const el = container.firstElementChild as HTMLElement | null
+      if (!el) throw new Error('Share card não renderizou')
+
       const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 2 })
-      const res = await fetch(dataUrl)
-      const blob = await res.blob()
+      const dataUrl = await toPng(el, { pixelRatio: 2, skipFonts: true })
+
+      root.unmount()
+
+      // Build a WhatsApp-friendly share message
+      const ht = match.home_team?.name ?? '?'
+      const at = match.away_team?.name ?? '?'
+      const dateStr = formatDate(match.match_date)
+      const shareText = mode === 'finished'
+        ? `⚽ ${ht} ${match.home_score} × ${match.away_score} ${at}\n${match.phase_label} · ${dateStr}\n\nConfira os palpites da galera no OusaBolão! 🏆`
+        : `⏳ ${ht} × ${at} — ${match.phase_label}\n${dateStr} · Palpites encerrados\n\nVeja o que cada um apostou antes do apito inicial 👀`
+
+      const blob = await fetch(dataUrl).then(r => r.blob())
       const file = new File([blob], imgFilename, { type: 'image/png' })
       if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'OusaBolão' })
+        await navigator.share({ files: [file], title: 'OusaBolão', text: shareText })
       } else {
         const a = document.createElement('a')
         a.href = dataUrl
@@ -304,11 +352,12 @@ export function MatchCard({ match, canBet, currentUserName }: Props) {
         a.click()
       }
     } catch (e) {
-      console.error('Erro ao compartilhar imagem:', e)
+      console.error('Erro ao compartilhar:', e)
     } finally {
+      if (container.parentNode) container.parentNode.removeChild(container)
       setImgLoading(false)
     }
-  }, [imgLoading, imgFilename])
+  }, [imgLoading, imgFilename, match, mode, shareBets, currentUserName])
 
   function handleSubmit() {
     setError(null)
@@ -333,31 +382,10 @@ export function MatchCard({ match, canBet, currentUserName }: Props) {
     const myPts = myPoints !== null ? myPoints : null
 
     return (
-      <>
-        {/* Off-screen share card — captured by handleShare */}
-        <div
-          ref={shareCardRef}
-          aria-hidden="true"
-          style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}
-        >
-          <MatchShareCard
-            homeTeam={match.home_team}
-            awayTeam={match.away_team}
-            homeScore={match.home_score}
-            awayScore={match.away_score}
-            isFinished
-            phaseLabel={match.phase_label}
-            matchGroup={match.match_group}
-            round={match.round}
-            matchDate={match.match_date}
-            bets={shareBets}
-          />
-        </div>
-
-        <div
-          className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5"
-          role="article"
-        >
+      <div
+        className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5"
+        role="article"
+      >
           <CardHeader match={match} />
 
           {/* Official result */}
@@ -422,7 +450,6 @@ export function MatchCard({ match, canBet, currentUserName }: Props) {
             </button>
           </div>
         </div>
-      </>
     )
   }
 
@@ -454,28 +481,7 @@ export function MatchCard({ match, canBet, currentUserName }: Props) {
   // ── LOCKED state ────────────────────────────────────────────────
   if (mode === 'locked') {
     return (
-      <>
-        {/* Off-screen share card — captured by handleShare */}
-        <div
-          ref={shareCardRef}
-          aria-hidden="true"
-          style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}
-        >
-          <MatchShareCard
-            homeTeam={match.home_team}
-            awayTeam={match.away_team}
-            homeScore={match.home_score}
-            awayScore={match.away_score}
-            isFinished={false}
-            phaseLabel={match.phase_label}
-            matchGroup={match.match_group}
-            round={match.round}
-            matchDate={match.match_date}
-            bets={shareBets}
-          />
-        </div>
-
-        <div className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5">
+      <div className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5">
           <CardHeader match={match} />
 
           <div className="flex items-center gap-3 mb-4">
@@ -528,7 +534,6 @@ export function MatchCard({ match, canBet, currentUserName }: Props) {
             </button>
           </div>
         </div>
-      </>
     )
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Trophy, Share2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { buildRankingEntries } from '../rankingUtils'
@@ -8,7 +8,6 @@ import type { RankingEntry } from '../rankingUtils'
 import { Podium } from './Podium'
 import { RankList } from './RankList'
 import { PlayerBetsSheet } from './PlayerBetsSheet'
-import { RankingShareCard } from '@/components/ui/RankingShareCard'
 
 export type { RankingEntry }
 
@@ -21,19 +20,44 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
   const [entries, setEntries] = useState<RankingEntry[]>(initialEntries)
   const [selectedEntry, setSelectedEntry] = useState<RankingEntry | null>(null)
   const [imgLoading, setImgLoading] = useState(false)
-  const shareCardRef = useRef<HTMLDivElement>(null)
 
   const handleShare = useCallback(async () => {
-    if (!shareCardRef.current || imgLoading) return
+    if (imgLoading) return
     setImgLoading(true)
+    const container = document.createElement('div')
+    Object.assign(container.style, {
+      position: 'fixed', left: '0', top: '-9999px',
+      width: '640px', pointerEvents: 'none', zIndex: '-1',
+    })
+    document.body.appendChild(container)
     try {
+      const [{ createRoot }, { RankingShareCard }] = await Promise.all([
+        import('react-dom/client'),
+        import('@/components/ui/RankingShareCard'),
+      ])
+
+      const root = createRoot(container)
+      root.render(<RankingShareCard entries={entries} currentUserId={currentUserId} />)
+
+      await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))))
+
+      const el = container.firstElementChild as HTMLElement | null
+      if (!el) throw new Error('Ranking share card não renderizou')
+
       const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(shareCardRef.current, { pixelRatio: 2 })
-      const res = await fetch(dataUrl)
-      const blob = await res.blob()
+      const dataUrl = await toPng(el, { pixelRatio: 2, skipFonts: true })
+
+      root.unmount()
+
+      const leader = entries[0]
+      const shareText = leader
+        ? `🏆 Ranking OusaBolão — Copa do Mundo 2026\n${leader.name} lidera com ${leader.total_points} pts! 🥇\nQuem vai ganhar o bolão? 💰`
+        : `🏆 Ranking OusaBolão — Copa do Mundo 2026`
+
+      const blob = await fetch(dataUrl).then(r => r.blob())
       const file = new File([blob], 'ranking-ousabolao.png', { type: 'image/png' })
       if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'OusaBolão' })
+        await navigator.share({ files: [file], title: 'OusaBolão', text: shareText })
       } else {
         const a = document.createElement('a')
         a.href = dataUrl
@@ -41,11 +65,12 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
         a.click()
       }
     } catch (e) {
-      console.error('Erro ao compartilhar imagem:', e)
+      console.error('Erro ao compartilhar ranking:', e)
     } finally {
+      if (container.parentNode) container.parentNode.removeChild(container)
       setImgLoading(false)
     }
-  }, [imgLoading])
+  }, [imgLoading, entries, currentUserId])
 
   useEffect(() => {
     const supabase = createClient()
@@ -103,15 +128,6 @@ export function RankingClient({ initialEntries, currentUserId }: Props) {
 
   return (
     <div>
-      {/* Off-screen share card — captured by handleShare */}
-      <div
-        ref={shareCardRef}
-        aria-hidden="true"
-        style={{ position: 'fixed', left: '-9999px', top: 0, zIndex: -1, pointerEvents: 'none' }}
-      >
-        <RankingShareCard entries={entries} currentUserId={currentUserId} />
-      </div>
-
       <div>
         <div className="flex items-start justify-between mb-5">
           <div>
