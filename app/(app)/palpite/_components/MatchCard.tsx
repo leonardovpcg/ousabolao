@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
-import { ChevronDown, ChevronUp, Lock, CheckCircle2, Users } from 'lucide-react'
+import { useCallback, useRef, useState, useTransition } from 'react'
+import { ChevronDown, ChevronUp, Lock, CheckCircle2, Users, ImageDown, Loader2 } from 'lucide-react'
 import { upsertBet } from '../actions'
 import { Countdown } from './Countdown'
 import type { MatchData, OtherBet } from './types'
@@ -138,11 +138,14 @@ function BetAvatar({ name }: { name: string }) {
 function OtherBetsList({
   bets,
   isFinished,
+  forceOpen = false,
 }: {
   bets: OtherBet[]
   isFinished: boolean
+  forceOpen?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const isOpen = open || forceOpen
 
   if (bets.length === 0) return null
 
@@ -169,14 +172,14 @@ function OtherBetsList({
           <span className="text-[10px] font-bold text-ink-soft tabular-nums bg-card-sunken border border-hairline px-2 py-0.5 rounded-pill leading-none">
             {bets.length}
           </span>
-          {open
+          {isOpen
             ? <ChevronUp size={13} strokeWidth={2.5} className="text-ink-faint" />
             : <ChevronDown size={13} strokeWidth={2.5} className="text-ink-faint" />
           }
         </div>
       </button>
 
-      {open && (
+      {isOpen && (
         <div className="rounded-xl border border-hairline overflow-hidden mb-1">
           {sorted.map((b, i) => (
             <div
@@ -259,8 +262,33 @@ export function MatchCard({ match, canBet }: Props) {
   )
   const [justSaved, setJustSaved] = useState(false)
   const [pending, startTransition] = useTransition()
+  const [isCapturing, setIsCapturing] = useState(false)
+  const [imgLoading, setImgLoading] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const handleExpire = useCallback(() => setMode('locked'), [])
+
+  const handleDownloadImage = useCallback(async () => {
+    if (!cardRef.current || imgLoading) return
+    setImgLoading(true)
+    setIsCapturing(true)
+    await new Promise(r => setTimeout(r, 150))
+    try {
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, backgroundColor: '#FFFFFF' })
+      const a = document.createElement('a')
+      a.href = dataUrl
+      const home = match.home_team?.name ?? 'time1'
+      const away = match.away_team?.name ?? 'time2'
+      a.download = `${home}-x-${away}.png`.toLowerCase().replace(/\s+/g, '-')
+      a.click()
+    } catch (e) {
+      console.error('Erro ao gerar imagem:', e)
+    } finally {
+      setIsCapturing(false)
+      setImgLoading(false)
+    }
+  }, [imgLoading, match.home_team?.name, match.away_team?.name])
 
   function handleSubmit() {
     setError(null)
@@ -286,6 +314,7 @@ export function MatchCard({ match, canBet }: Props) {
 
     return (
       <div
+        ref={cardRef}
         className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5"
         role="article"
       >
@@ -335,7 +364,23 @@ export function MatchCard({ match, canBet }: Props) {
           </div>
         )}
 
-        <OtherBetsList bets={match.other_bets} isFinished />
+        <OtherBetsList bets={match.other_bets} isFinished forceOpen={isCapturing} />
+
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={handleDownloadImage}
+            disabled={imgLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
+            title="Baixar imagem para WhatsApp"
+          >
+            {imgLoading
+              ? <Loader2 size={12} className="animate-spin" />
+              : <ImageDown size={12} strokeWidth={2} />
+            }
+            Salvar imagem
+          </button>
+        </div>
       </div>
     )
   }
@@ -368,7 +413,7 @@ export function MatchCard({ match, canBet }: Props) {
   // ── LOCKED state ────────────────────────────────────────────────
   if (mode === 'locked') {
     return (
-      <div className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5">
+      <div ref={cardRef} className="rounded-card bg-card border border-hairline card-shadow-sm p-4 lg:p-5">
         <CardHeader match={match} />
 
         <div className="flex items-center gap-3 mb-4">
@@ -403,7 +448,23 @@ export function MatchCard({ match, canBet }: Props) {
           <p className="text-center text-xs text-ink-faint py-1">Você não enviou palpite</p>
         )}
 
-        <OtherBetsList bets={match.other_bets} isFinished={false} />
+        <OtherBetsList bets={match.other_bets} isFinished={false} forceOpen={isCapturing} />
+
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={handleDownloadImage}
+            disabled={imgLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn border border-hairline bg-card text-ink-faint text-[11px] font-semibold hover:text-ink hover:border-ink-faint active:scale-[.98] transition-all disabled:opacity-40"
+            title="Baixar imagem para WhatsApp"
+          >
+            {imgLoading
+              ? <Loader2 size={12} className="animate-spin" />
+              : <ImageDown size={12} strokeWidth={2} />
+            }
+            Salvar imagem
+          </button>
+        </div>
       </div>
     )
   }
