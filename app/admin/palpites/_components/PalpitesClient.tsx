@@ -402,7 +402,11 @@ export function PalpitesClient({ bets, matches, profiles }: Props) {
     setExportError(null)
     try {
       const res = await fetch(`/api/admin/match-image?matchId=${matchId}`)
-      if (!res.ok) { setExportError('Erro ao gerar imagem.'); return }
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '')
+        setExportError(`Erro ao gerar imagem: ${msg || res.status}`)
+        return
+      }
       const blob = await res.blob()
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')

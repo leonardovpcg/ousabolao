@@ -137,21 +137,43 @@ export async function GET(request: NextRequest) {
     + (bets.length > 0 ? bets.length * H_BET_ROW : H_EMPTY)
     + H_FOOTER
 
-  const [fontR, fontB] = await loadFonts()
+  // ── Font loading ───────────────────────────────────────────
+  let fontR: ArrayBuffer
+  let fontB: ArrayBuffer
+  try {
+    ;[fontR, fontB] = await loadFonts()
+  } catch (e) {
+    console.error('[match-image] font load failed:', e)
+    return new Response(`Erro ao carregar fontes: ${String(e)}`, { status: 500 })
+  }
 
-  const svg = await satori(
-    React.createElement(MatchImageTemplate, { data }),
-    {
-      width:  W,
-      height: H,
-      fonts: [
-        { name: 'Inter', data: fontR, weight: 400, style: 'normal' },
-        { name: 'Inter', data: fontB, weight: 700, style: 'normal' },
-      ],
-    },
-  )
+  // ── Satori SVG ─────────────────────────────────────────────
+  let svg: string
+  try {
+    svg = await satori(
+      React.createElement(MatchImageTemplate, { data }),
+      {
+        width:  W,
+        height: H,
+        fonts: [
+          { name: 'Inter', data: fontR, weight: 400, style: 'normal' },
+          { name: 'Inter', data: fontB, weight: 700, style: 'normal' },
+        ],
+      },
+    )
+  } catch (e) {
+    console.error('[match-image] satori failed:', e)
+    return new Response(`Erro ao gerar SVG: ${String(e)}`, { status: 500 })
+  }
 
-  const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer()
+  // ── Sharp PNG ──────────────────────────────────────────────
+  let pngBuffer: Buffer
+  try {
+    pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer()
+  } catch (e) {
+    console.error('[match-image] sharp failed:', e)
+    return new Response(`Erro ao converter PNG: ${String(e)}`, { status: 500 })
+  }
 
   const homeA = teamAbbr(homeTeamRaw?.name ?? null, homeTeamRaw?.country ?? null).toLowerCase()
   const awayA = teamAbbr(awayTeamRaw?.name ?? null, awayTeamRaw?.country ?? null).toLowerCase()
