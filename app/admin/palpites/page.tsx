@@ -56,40 +56,45 @@ export type TiebreakerResponse = {
 
 // ── Page ──────────────────────────────────────────────────────
 
+const BET_SELECT = 'id, user_id, match_id, home_prediction, away_prediction, points' as const
+
 export default async function AdminRelatoriosPage() {
   const supabase = await createClient()
 
-  const [betsResult, matchesResult, profilesResult, questionsResult, responsesResult] =
-    await Promise.all([
-      supabase
-        .from('bets')
-        .select('id, user_id, match_id, home_prediction, away_prediction, points')
-        .limit(10000),
-      supabase
-        .from('matches')
-        .select(`
-          id, match_date, phase, match_group, round,
-          home_score, away_score, status,
-          home_team:national_teams!home_team_national_id(id, name, country, emblem_url),
-          away_team:national_teams!away_team_national_id(id, name, country, emblem_url)
-        `)
-        .eq('category', 'national')
-        .order('match_date'),
-      supabase
-        .from('profiles')
-        .select('id, name, payment_status')
-        .order('name'),
-      supabase
-        .from('tiebreaker_questions')
-        .select('id, display_order, question, official_answer, is_active')
-        .order('display_order'),
-      supabase
-        .from('tiebreaker_responses')
-        .select('id, user_id, question_id, answer, is_correct'),
-    ])
+  // Bets fetched in two parallel pages — PostgREST server max-rows defaults to
+  // 1000 and cannot be overridden by .limit(); pagination is required.
+  const [
+    betsPage1, betsPage2,
+    matchesResult, profilesResult, questionsResult, responsesResult,
+  ] = await Promise.all([
+    supabase.from('bets').select(BET_SELECT).order('created_at').range(0, 999),
+    supabase.from('bets').select(BET_SELECT).order('created_at').range(1000, 1999),
+    supabase
+      .from('matches')
+      .select(`
+        id, match_date, phase, match_group, round,
+        home_score, away_score, status,
+        home_team:national_teams!home_team_national_id(id, name, country, emblem_url),
+        away_team:national_teams!away_team_national_id(id, name, country, emblem_url)
+      `)
+      .eq('category', 'national')
+      .order('match_date'),
+    supabase
+      .from('profiles')
+      .select('id, name, payment_status')
+      .order('name'),
+    supabase
+      .from('tiebreaker_questions')
+      .select('id, display_order, question, official_answer, is_active')
+      .order('display_order'),
+    supabase
+      .from('tiebreaker_responses')
+      .select('id, user_id, question_id, answer, is_correct'),
+  ])
 
   const fetchError =
-    betsResult.error ?? matchesResult.error ?? profilesResult.error ??
+    betsPage1.error ?? betsPage2.error ??
+    matchesResult.error ?? profilesResult.error ??
     questionsResult.error ?? responsesResult.error
 
   if (fetchError) {
@@ -101,9 +106,14 @@ export default async function AdminRelatoriosPage() {
     )
   }
 
+  const allBets = [
+    ...((betsPage1.data ?? []) as BetEntry[]),
+    ...((betsPage2.data ?? []) as BetEntry[]),
+  ]
+
   return (
     <RelatoriosShell
-      bets={(betsResult.data ?? []) as BetEntry[]}
+      bets={allBets}
       matches={(matchesResult.data ?? []) as MatchForBets[]}
       profiles={(profilesResult.data ?? []) as ProfileRow[]}
       questions={(questionsResult.data ?? []) as TiebreakerQuestion[]}

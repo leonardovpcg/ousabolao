@@ -75,7 +75,9 @@ export default async function PalpitePage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Parallel fetches
+  const allBetSelect = 'match_id, user_id, home_prediction, away_prediction, points' as const
+
+  // Parallel fetches — bets split in two pages (PostgREST server max-rows = 1000)
   const [
     { data: profileData },
     { data: isAdminResult },
@@ -83,7 +85,9 @@ export default async function PalpitePage() {
     { data: matchRows },
     { data: nationalTeamRows },
     { data: myBetRows },
-    { data: allBetRows },
+    { data: allBetPage1 },
+    { data: allBetPage2 },
+    { data: allProfileRows },
   ] = await Promise.all([
     supabase.from('profiles').select('payment_status, name').eq('id', user.id).single(),
     supabase.rpc('is_admin'),
@@ -100,10 +104,12 @@ export default async function PalpitePage() {
       .from('bets')
       .select('id, match_id, home_prediction, away_prediction, points')
       .eq('user_id', user.id),
-    supabase
-      .from('bets_with_profiles')
-      .select('match_id, user_id, user_name, home_prediction, away_prediction, points'),
+    supabase.from('bets').select(allBetSelect).order('created_at').range(0, 999),
+    supabase.from('bets').select(allBetSelect).order('created_at').range(1000, 1999),
+    supabase.from('profiles').select('id, name'),
   ])
+
+  const allBetRows = [...(allBetPage1 ?? []), ...(allBetPage2 ?? [])]
 
   const phases = (phaseRows ?? []) as RawPhase[]
   const phaseMap = new Map(phases.map((p) => [p.phase, p]))
@@ -125,13 +131,19 @@ export default async function PalpitePage() {
     })
   }
 
+  // Index profile names for display in other_bets
+  const profileNameMap = new Map<string, string | null>()
+  for (const p of allProfileRows ?? []) {
+    profileNameMap.set(p.id, p.name ?? null)
+  }
+
   // Index others' bets by match_id
   const otherBetsMap = new Map<string, OtherBet[]>()
   for (const b of allBetRows ?? []) {
     if (!b.match_id || b.user_id === user.id) continue
     const entry: OtherBet = {
       user_id: b.user_id!,
-      user_name: b.user_name,
+      user_name: profileNameMap.get(b.user_id!) ?? null,
       home_prediction: b.home_prediction ?? 0,
       away_prediction: b.away_prediction ?? 0,
       points: b.points ?? null,

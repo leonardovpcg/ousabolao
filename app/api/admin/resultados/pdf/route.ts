@@ -54,19 +54,16 @@ export async function GET(request: NextRequest) {
 
   if (round) matchQuery = matchQuery.eq('round', round)
 
-  const [matchRes, betRes, profileRes] = await Promise.all([
+  const betSelect = 'user_id, match_id, home_prediction, away_prediction, points' as const
+
+  const [matchRes, betPage1, betPage2, profileRes] = await Promise.all([
     matchQuery,
-    supabase
-      .from('bets')
-      .select('user_id, match_id, home_prediction, away_prediction, points')
-      .limit(10000),
-    supabase
-      .from('profiles')
-      .select('id, name, payment_status')
-      .order('name'),
+    supabase.from('bets').select(betSelect).order('created_at').range(0, 999),
+    supabase.from('bets').select(betSelect).order('created_at').range(1000, 1999),
+    supabase.from('profiles').select('id, name, payment_status').order('name'),
   ])
 
-  if (matchRes.error || betRes.error || profileRes.error) {
+  if (matchRes.error || betPage1.error || betPage2.error || profileRes.error) {
     return new Response('Erro ao buscar dados.', { status: 500 })
   }
 
@@ -84,7 +81,7 @@ export async function GET(request: NextRequest) {
   }
 
   const rawMatches = (matchRes.data ?? []) as MatchRaw[]
-  const rawBets    = betRes.data ?? []
+  const rawBets    = [...(betPage1.data ?? []), ...(betPage2.data ?? [])]
   const profiles   = profileRes.data ?? []
 
   const pdfMatches: ResultadosPdfMatch[] = rawMatches.map(m => ({

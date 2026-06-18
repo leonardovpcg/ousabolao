@@ -55,13 +55,6 @@ export async function GET(request: NextRequest) {
     .order('match_date')
   if (round) matchQuery = matchQuery.eq('round', round)
 
-  // Fetch bets
-  let betQuery = supabase
-    .from('bets')
-    .select('user_id, match_id, home_prediction, away_prediction, points')
-    .limit(10000)
-  if (participantId) betQuery = betQuery.eq('user_id', participantId)
-
   // Fetch profiles
   let profileQuery = supabase
     .from('profiles')
@@ -69,9 +62,20 @@ export async function GET(request: NextRequest) {
     .order('name')
   if (participantId) profileQuery = profileQuery.eq('id', participantId)
 
-  const [matchRes, betRes, profileRes] = await Promise.all([matchQuery, betQuery, profileQuery])
+  const betSelect = 'user_id, match_id, home_prediction, away_prediction, points' as const
 
-  if (matchRes.error || betRes.error || profileRes.error) {
+  let betQuery1 = supabase.from('bets').select(betSelect).order('created_at').range(0, 999)
+  let betQuery2 = supabase.from('bets').select(betSelect).order('created_at').range(1000, 1999)
+  if (participantId) {
+    betQuery1 = betQuery1.eq('user_id', participantId)
+    betQuery2 = betQuery2.eq('user_id', participantId)
+  }
+
+  const [matchRes, betPage1, betPage2, profileRes] = await Promise.all([
+    matchQuery, betQuery1, betQuery2, profileQuery,
+  ])
+
+  if (matchRes.error || betPage1.error || betPage2.error || profileRes.error) {
     return new Response('Erro ao buscar dados.', { status: 500 })
   }
 
@@ -89,7 +93,7 @@ export async function GET(request: NextRequest) {
   }
 
   const rawMatches = (matchRes.data ?? []) as MatchRaw[]
-  const rawBets    = betRes.data ?? []
+  const rawBets    = [...(betPage1.data ?? []), ...(betPage2.data ?? [])]
   const profiles   = profileRes.data ?? []
 
   // Build match list
