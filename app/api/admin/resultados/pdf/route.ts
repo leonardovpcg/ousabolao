@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   const [matchRes, betRes, profileRes] = await Promise.all([
     matchQuery,
     supabase
-      .from('bets_with_profiles')
+      .from('bets')
       .select('user_id, match_id, home_prediction, away_prediction, points')
       .limit(10000),
     supabase

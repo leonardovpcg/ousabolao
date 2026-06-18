@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
 
   // Fetch bets
   let betQuery = supabase
-    .from('bets_with_profiles')
-    .select('user_id, match_id, home_prediction, away_prediction, points, payment_status')
+    .from('bets')
+    .select('user_id, match_id, home_prediction, away_prediction, points')
     .limit(10000)
   if (participantId) betQuery = betQuery.eq('user_id', participantId)
 

@@ -6,12 +6,10 @@ import { RelatoriosShell } from './_components/RelatoriosShell'
 export type BetEntry = {
   id: string | null
   user_id: string | null
-  user_name: string | null
   match_id: string | null
   home_prediction: number | null
   away_prediction: number | null
   points: number | null
-  payment_status: string | null
 }
 
 export type NationalTeam = {
@@ -64,8 +62,8 @@ export default async function AdminRelatoriosPage() {
   const [betsResult, matchesResult, profilesResult, questionsResult, responsesResult] =
     await Promise.all([
       supabase
-        .from('bets_with_profiles')
-        .select('id, user_id, user_name, match_id, home_prediction, away_prediction, points, payment_status')
+        .from('bets')
+        .select('id, user_id, match_id, home_prediction, away_prediction, points')
         .limit(10000),
       supabase
         .from('matches')
