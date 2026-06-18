@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
     matchQuery,
     supabase
       .from('bets_with_profiles')
-      .select('user_id, match_id, home_prediction, away_prediction, points'),
+      .select('user_id, match_id, home_prediction, away_prediction, points')
+      .limit(10000),
     supabase
       .from('profiles')
       .select('id, name, payment_status')

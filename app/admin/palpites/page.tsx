@@ -65,7 +65,8 @@ export default async function AdminRelatoriosPage() {
     await Promise.all([
       supabase
         .from('bets_with_profiles')
-        .select('id, user_id, user_name, match_id, home_prediction, away_prediction, points, payment_status'),
+        .select('id, user_id, user_name, match_id, home_prediction, away_prediction, points, payment_status')
+        .limit(10000),
       supabase
         .from('matches')
         .select(`
