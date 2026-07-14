@@ -1,5 +1,6 @@
 import { type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAllRows'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { PalpitesPdf } from '@/lib/pdf/palpites-pdf'
 import React from 'react'
@@ -64,18 +65,25 @@ export async function GET(request: NextRequest) {
 
   const betSelect = 'user_id, match_id, home_prediction, away_prediction, points' as const
 
-  let betQuery1 = supabase.from('bets').select(betSelect).order('created_at').range(0, 999)
-  let betQuery2 = supabase.from('bets').select(betSelect).order('created_at').range(1000, 1999)
-  if (participantId) {
-    betQuery1 = betQuery1.eq('user_id', participantId)
-    betQuery2 = betQuery2.eq('user_id', participantId)
+  type BetRaw = {
+    user_id: string | null
+    match_id: string | null
+    home_prediction: number | null
+    away_prediction: number | null
+    points: number | null
   }
 
-  const [matchRes, betPage1, betPage2, profileRes] = await Promise.all([
-    matchQuery, betQuery1, betQuery2, profileQuery,
+  const betsPromise = fetchAllRows<BetRaw>((from, to) => {
+    let q = supabase.from('bets').select(betSelect).order('created_at').order('id').range(from, to)
+    if (participantId) q = q.eq('user_id', participantId)
+    return q
+  })
+
+  const [matchRes, betRes, profileRes] = await Promise.all([
+    matchQuery, betsPromise, profileQuery,
   ])
 
-  if (matchRes.error || betPage1.error || betPage2.error || profileRes.error) {
+  if (matchRes.error || betRes.error || profileRes.error) {
     return new Response('Erro ao buscar dados.', { status: 500 })
   }
 
@@ -93,7 +101,7 @@ export async function GET(request: NextRequest) {
   }
 
   const rawMatches = (matchRes.data ?? []) as MatchRaw[]
-  const rawBets    = [...(betPage1.data ?? []), ...(betPage2.data ?? [])]
+  const rawBets    = betRes.data
   const profiles   = profileRes.data ?? []
 
   // Build match list

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAllRows'
 import { cgDateKey } from '@/lib/utils/datetime'
 import { PalpiteClient } from './_components/PalpiteClient'
 import type { MatchData, MyBet, NationalTeam, OtherBet } from './_components/types'
@@ -77,7 +78,14 @@ export default async function PalpitePage() {
 
   const allBetSelect = 'match_id, user_id, home_prediction, away_prediction, points' as const
 
-  // Parallel fetches — bets split in two pages (PostgREST server max-rows = 1000)
+  type AllBetRow = {
+    match_id: string | null
+    user_id: string | null
+    home_prediction: number | null
+    away_prediction: number | null
+    points: number | null
+  }
+
   const [
     { data: profileData },
     { data: isAdminResult },
@@ -85,8 +93,7 @@ export default async function PalpitePage() {
     { data: matchRows },
     { data: nationalTeamRows },
     { data: myBetRows },
-    { data: allBetPage1 },
-    { data: allBetPage2 },
+    { data: allBetRows },
     { data: allProfileRows },
   ] = await Promise.all([
     supabase.from('profiles').select('payment_status, name').eq('id', user.id).single(),
@@ -104,12 +111,11 @@ export default async function PalpitePage() {
       .from('bets')
       .select('id, match_id, home_prediction, away_prediction, points')
       .eq('user_id', user.id),
-    supabase.from('bets').select(allBetSelect).order('created_at').range(0, 999),
-    supabase.from('bets').select(allBetSelect).order('created_at').range(1000, 1999),
+    fetchAllRows<AllBetRow>((from, to) =>
+      supabase.from('bets').select(allBetSelect).order('created_at').order('id').range(from, to),
+    ),
     supabase.from('profiles').select('id, name'),
   ])
-
-  const allBetRows = [...(allBetPage1 ?? []), ...(allBetPage2 ?? [])]
 
   const phases = (phaseRows ?? []) as RawPhase[]
   const phaseMap = new Map(phases.map((p) => [p.phase, p]))

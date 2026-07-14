@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAllRows'
 import { RelatoriosShell } from './_components/RelatoriosShell'
 
 // ── Types ─────────────────────────────────────────────────────
@@ -61,14 +62,13 @@ const BET_SELECT = 'id, user_id, match_id, home_prediction, away_prediction, poi
 export default async function AdminRelatoriosPage() {
   const supabase = await createClient()
 
-  // Bets fetched in two parallel pages — PostgREST server max-rows defaults to
-  // 1000 and cannot be overridden by .limit(); pagination is required.
   const [
-    betsPage1, betsPage2,
+    betsResult,
     matchesResult, profilesResult, questionsResult, responsesResult,
   ] = await Promise.all([
-    supabase.from('bets').select(BET_SELECT).order('created_at').range(0, 999),
-    supabase.from('bets').select(BET_SELECT).order('created_at').range(1000, 1999),
+    fetchAllRows<BetEntry>((from, to) =>
+      supabase.from('bets').select(BET_SELECT).order('created_at').order('id').range(from, to),
+    ),
     supabase
       .from('matches')
       .select(`
@@ -93,7 +93,7 @@ export default async function AdminRelatoriosPage() {
   ])
 
   const fetchError =
-    betsPage1.error ?? betsPage2.error ??
+    betsResult.error ??
     matchesResult.error ?? profilesResult.error ??
     questionsResult.error ?? responsesResult.error
 
@@ -106,10 +106,7 @@ export default async function AdminRelatoriosPage() {
     )
   }
 
-  const allBets = [
-    ...((betsPage1.data ?? []) as BetEntry[]),
-    ...((betsPage2.data ?? []) as BetEntry[]),
-  ]
+  const allBets = betsResult.data
 
   return (
     <RelatoriosShell
